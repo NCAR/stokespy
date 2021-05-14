@@ -10,35 +10,42 @@ def _lookup_axis_index(wcs, name):
             return(wcs.naxis - 1) - ix # convert to array_index order
 
 class StokesCube(ndcube.NDCube):
-    def __init__(self, data, wcs=None, spectral_axis=None, stokes_axis=None,
-                 stokes_params=('I', 'Q', 'U', 'V'), normalize=False, **kwargs):
-        
-        # If not specified, attempt to find wavelength axis in WCS
-        if spectral_axis is None and wcs is not None:
-            spectral_axis = _lookup_axis_index(wcs, 'spectral')
-        
-        # If not specified, attempt to find stokes axis in WCS
-        if stokes_axis is None and wcs is not None:
-            stokes_axis = _lookup_axis_index(wcs, 'stokes')
-                
-        print("XXX spectral_axis:", spectral_axis, "stokes_axis:", stokes_axis)
+    """
+    Class representing a 2D map of Stokes profiles
+
+    Parameters
+    ----------
+    data: `numpy.ndarray`
+        The array holding the actual data in this object.  The array index order must be 
+        (stokes, wavelength, coord1, coord2).
+
+    wcs: `astropy.wcs.wcsapi.BaseLowLevelWCS`, `astropy.wcs.wcsapi.BaseHighLevelWCS`, optional
+        The WCS object containing the axes' information.  If not provided, a WCS is constructed 
+        using `wavelength_unit` and `coordinate_unit`, which default to pixels.
+
+    stokes_params: `tuple` of `str`
+        Tuple containing all or part of ('I', 'Q', 'U', 'V') defining the number and kind of 
+        Stokes parameters available.
+
+    normalize: `bool`
+        Normalization for polarization parameters Q, U, V.  If `True`, then polarization parameters 
+        are normalized by the intensity at each wavelength, e.g. Q => Q/I.  If a non-zero scalar is 
+        provided then that will be used as the normalization, e.g. for a chosen continuum intensity.
+
+    Additional kwargs are passed to the `NDCube` base class.
+    """
+
+    def __init__(self, data, wcs=None, stokes_params=('I', 'Q', 'U', 'V'), normalize=False, **kwargs):    
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
-        self._spectral_axis_ix = spectral_axis
-        self._stokes_axis_ix = stokes_axis
         self.normalize = normalize
         
         # Define spectral_axis attribute from WCS
-        if spectral_axis is not None:
-            n_spectral = self.data.shape[spectral_axis]
-            wcs_slice = [0] * self.wcs.naxis
-            wcs_slice[spectral_axis] = slice(0, n_spectral)
-            wcs_slice = self.wcs.slice(wcs_slice)
-            self.spectral_axis = wcs_slice.array_index_to_world(np.arange(n_spectral))
-            
-        # Define Stokes parameter attributes
-        if stokes_axis is not None:
-            self.stokes_axis = stokes_axis
+        n_spectral = self.data.shape[1]
+        wcs_slice = [0] * self.wcs.naxis # index 0 for stokes, coord1, coord2
+        wcs_slice[1] = slice(0, n_spectral) # slice all for spectral axis
+        wcs_slice = self.wcs.slice(wcs_slice)
+        self.spectral_axis = wcs_slice.array_index_to_world(np.arange(n_spectral))
                 
     def _full_slice(self):
         full_slice = [slice(stop) for stop in self.dimensions.value.astype(int)]
@@ -46,7 +53,7 @@ class StokesCube(ndcube.NDCube):
 
     def _stokes_slice(self, stokes_ix, normalize=False):
         cube_slice = self._full_slice()
-        cube_slice[self.stokes_axis] = stokes_ix
+        cube_slice[0] = stokes_ix
         newcube = ndcube.NDCube(self.data, self.wcs)[cube_slice]
         if stokes_ix != 0:
             if self.normalize is True:
@@ -101,10 +108,9 @@ class StokesCube(ndcube.NDCube):
         return ndcube.NDCube(np.degrees(theta) * u.degree, Q.wcs)
     
     def _spectral_slice(self):
-        spectral_axis = self._spectral_axis_ix
-        n_spectral = self.data.shape[spectral_axis]
+        n_spectral = self.data.shape[1]
         wcs_slice = [0] * self.wcs.naxis
-        wcs_slice[spectral_axis] = slice(0, n_spectral)
+        wcs_slice[1] = slice(0, n_spectral)
         wcs_slice = self.wcs.slice(wcs_slice)
         return wcs_slice
     
