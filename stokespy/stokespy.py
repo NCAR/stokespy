@@ -2,13 +2,6 @@ import numpy as np
 import ndcube
 import astropy.units as u
 
-
-def _lookup_axis_index(wcs, name):
-    axis_types = wcs.world_axis_object_components # FITS order
-    for ix, ax in enumerate(axis_types):
-        if ax[0] == name:
-            return(wcs.naxis - 1) - ix # convert to array_index order
-
 class StokesCube(ndcube.NDCube):
     """
     Class representing a 2D map of Stokes profiles
