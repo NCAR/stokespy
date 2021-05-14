@@ -1,5 +1,6 @@
 import numpy as np
 import ndcube
+import astropy.wcs
 import astropy.units as u
 
 class StokesCube(ndcube.NDCube):
@@ -28,26 +29,23 @@ class StokesCube(ndcube.NDCube):
     Additional kwargs are passed to the `NDCube` base class.
     """
 
-    def __init__(self, data, wcs=None, stokes_params=('I', 'Q', 'U', 'V'), normalize=False, **kwargs):    
+    def __init__(self, data, wcs=None, stokes_params=('I', 'Q', 'U', 'V'), normalize=False, **kwargs):
+        if wcs is None:
+            wcs = astropy.wcs.WCS(naxis=4)
+            wcs.wcs.ctype = ["COORD2", "COORD1", "WAVEIX", "STOKES"]
+            wcs.wcs.cunit = ['pix', 'pix', 'pix', '']
+            wcs.wcs.set()
+
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
         self.normalize = normalize
-        
+
         # Define spectral_axis attribute from WCS
         n_spectral = self.data.shape[1]
-        wcs_slice = [0] * self.wcs.naxis # index 0 for stokes, coord1, coord2
-        wcs_slice[1] = slice(0, n_spectral) # slice all for spectral axis
-        wcs_slice = self.wcs.slice(wcs_slice)
-        self.spectral_axis = wcs_slice.array_index_to_world(np.arange(n_spectral))
-                
-    def _full_slice(self):
-        full_slice = [slice(stop) for stop in self.dimensions.value.astype(int)]
-        return full_slice
+        self.spectral_axis = self.wcs[0,:,0,0].array_index_to_world(np.arange(n_spectral))
 
     def _stokes_slice(self, stokes_ix, normalize=False):
-        cube_slice = self._full_slice()
-        cube_slice[0] = stokes_ix
-        newcube = ndcube.NDCube(self.data, self.wcs)[cube_slice]
+        newcube = ndcube.NDCube(self.data, self.wcs)[stokes_ix]
         if stokes_ix != 0:
             if self.normalize is True:
                 # Normalize by I
@@ -112,8 +110,6 @@ class StokesCube(ndcube.NDCube):
         spectral_wcs = self._spectral_slice()
         ix = int(spectral_wcs.world_to_array_index_values(wavelength))
         # TODO: understand how the binning is done better...
-        # TODO: assumes wavelength axis is first in newcube
-        # Should I just require an axis order from user?
         return newcube[ix]
     
     def I_map(self, wavelength, stop_wavelength=None):
@@ -152,8 +148,6 @@ class StokesCube(ndcube.NDCube):
     
     def _stokes_profile(self, stokes_ix, coord1, coord2):
         newcube = self._stokes_slice(stokes_ix)
-        # TODO: assumes wavelength axis is first in newcube, then coord1, coord2
-        # Should I just require an axis order from user?
         return newcube[:, coord1, coord2]
     
     def I_profile(self, coord1, coord2):
