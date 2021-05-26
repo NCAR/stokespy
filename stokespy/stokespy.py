@@ -232,3 +232,67 @@ class StokesCube(ndcube.NDCube):
         U = self.U_profile(coord1, coord2)
         theta = np.arctan2(U.data, Q.data)
         return ndcube.NDCube(np.degrees(theta) * u.degree, Q.wcs)
+
+
+class MagVectorCube(ndcube.NDCube):
+    """
+    Class representing a 2D map of inverted magnetic field vectors
+    
+    Parameters
+    ----------
+    data: `numpy.ndarray`
+        The array holding the magnetic field data stored in the object. The array index order must be
+        (magnetic, coord1, coord2) or should this be (magnetic, coord2, coord1)?
+        
+    wcs: `astropy.wcs.wcsapi.BaseLowLevelWCS`, `astropy.wcs.wcsapi.BaseHighLevelWCS`, optional
+        The WCS object containing the axes' information.  If not provided, a WCS is constructed 
+        using `wavelength_unit` and `coordinate_unit`, which default to pixels.
+    
+    magnetic_params: `tuple` or `str`
+        Tuple containing all or part of the magnetic field components ('B', 'inclination', 'azimuth')
+    
+    """
+    def __init__(self, data, wcs=None, magnetic_params=('B', 'inclination', 'azimuth'), **kwargs):
+        if wcs is None:
+            # Define a default WCS where coordinates and wavelength axis are
+            # in pixel units.  Note: cannot use "WAVE" ctype;
+            # astropy.wcs.WCS enforces length units for that name
+            wcs = astropy.wcs.WCS(naxis=3)
+            wcs.wcs.ctype = ["COORD2", "COORD1", "Parameter"]
+            wcs.wcs.cunit = ['pix', 'pix', '']
+            wcs.wcs.set()
+
+        # Init base NDCube with data and wcs
+        super().__init__(data, wcs=wcs, **kwargs)
+
+        # Check and define Stokes axis
+        if len(magnetic_params) != self.data.shape[0]:
+            raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, "+
+                            f"but {magnetic_params} parameters ({len(magnetic_params)} were expected")
+        self._magnetic_axis = magnetic_params
+        # TODO: stokes index map for N params < 4; use below
+
+    @property
+    def magnetic_axis(self):
+        """The available magnetic parameters"""
+        return self._magnetic_axis
+
+    def _magnetic_map(self, magnetic_ix):
+        """Return a 2D NDCube (coord1, coord2) for a given magnetic parameter"""        
+        newcube = ndcube.NDCube(self.data, self.wcs)[magnetic_ix,:,:]
+        return newcube
+    
+    @property
+    def B_map(self):
+        """Magnetic field strength as a 2D NDcube (coord1, coord2)"""
+        return self._magnetic_map(0)
+
+    @property
+    def inclination_map(self):
+        """Magnetic inclination as a 2D NDCube (coord1, coord2)"""
+        return self._stokes_slice(1)
+        
+    @property
+    def azimuth_map(self):
+        """Magnetic azimuth as 2D NDCube (coord1, coord2)"""
+        return self._stokes_slice(2)
