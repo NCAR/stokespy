@@ -3,9 +3,30 @@ import ndcube
 import astropy.wcs
 import astropy.units as u
 
-class StokesCube(ndcube.NDCube):
+class StokesParamCube(ndcube.ndcube.NDCubeBase):
+    """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
+    def plot(self, wavelength=None, coord1=None, coord2=None):
+        """Plot a slice of the Stokes parameter cube"""
+        print(f"TODO: implement {type(self)}.plot()")
+
+class StokesParamMap(ndcube.ndcube.NDCubeBase):
+    """Class representing a 2D map of bandpass intensities of a single Stokes parameter 
+    with dimensions (coord1, coord2).
+    """    
+    def plot(self):
+        """Plot a map of bandpass intensities"""
+        print(f"TODO: implement {type(self)}.plot()")
+
+class StokesProfile(ndcube.ndcube.NDCubeBase):
+    """Class representing a profile of a single Stokes parameter with dimensions (wavelength)
     """
-    Class representing a 2D map of Stokes profiles
+    def plot(self):
+        """Plot a Stokes profile"""
+        print(f"TODO: implement {type(self)}.plot()")
+
+class StokesCube(ndcube.ndcube.NDCubeBase):
+    """
+    Class representing a 2D map of Stokes profiles with dimensions (stokes, wavelength, coord1, coord2).
 
     Parameters
     ----------
@@ -78,7 +99,7 @@ class StokesCube(ndcube.NDCube):
 
     def _stokes_slice(self, stokes_ix, normalize=False):
         """Return a 3D NDCube (wavelength, coord1, coord2) for a given Stokes parameter"""
-        newcube = ndcube.NDCube(self.data, self.wcs)[stokes_ix]
+        newcube = StokesParamCube(self.data, self.wcs)[stokes_ix]
         if stokes_ix != 0:
             if self.normalize is True:
                 # Normalize by I
@@ -117,7 +138,7 @@ class StokesCube(ndcube.NDCube):
         U = self.U
         V = self.V
         P = np.sqrt(Q.data**2 + U.data**2 + V.data**2)
-        return ndcube.NDCube(P, Q.wcs)
+        return StokesParamCube(P, Q.wcs)
     
     @property
     def L(self):
@@ -125,7 +146,7 @@ class StokesCube(ndcube.NDCube):
         Q = self.Q
         U = self.U
         L = np.sqrt(Q.data**2 + U.data**2)
-        return ndcube.NDCube(L, Q.wcs)
+        return StokesParamCube(L, Q.wcs)
     
     @property
     def theta(self):
@@ -133,7 +154,7 @@ class StokesCube(ndcube.NDCube):
         Q = self.Q
         U = self.U
         theta = 0.5 * np.arctan2(U.data, Q.data)
-        return ndcube.NDCube(np.degrees(theta) * u.degree, Q.wcs)
+        return StokesParamCube(np.degrees(theta) * u.degree, Q.wcs)
     
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
@@ -149,7 +170,8 @@ class StokesCube(ndcube.NDCube):
         spectral_wcs = self._spectral_slice()
         ix = int(spectral_wcs.world_to_array_index_values(wavelength))
         # TODO: understand how the binning is done better...
-        return newcube[ix]
+        newcube = newcube[ix]
+        return StokesParamMap(newcube.data, newcube.wcs)
     
     def I_map(self, wavelength, stop_wavelength=None):
         """Intensity as a 2D NDCube (coord1, coord2)"""
@@ -193,7 +215,8 @@ class StokesCube(ndcube.NDCube):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
         # TODO: allow to specify coords in physical units
         newcube = self._stokes_slice(stokes_ix)
-        return newcube[:, coord1, coord2]
+        newcube = newcube[:, coord1, coord2]
+        return StokesProfile(newcube.data, newcube.wcs)
     
     def I_profile(self, coord1, coord2):
         """Intensity profile at a specific coordinate"""
@@ -217,21 +240,25 @@ class StokesCube(ndcube.NDCube):
         U = self.U_profile(coord1, coord2)
         V = self.V_profile(coord1, coord2)
         P = np.sqrt(Q.data**2 + U.data**2 + V.data**2)
-        return ndcube.NDCube(P, Q.wcs)
+        return StokesProfile(P, Q.wcs)
     
     def L_profile(self, coord1, coord2):
         """Linear polarization L = sqrt(Q**2 + U**2) profile at a specific coordinate"""        
         Q = self.Q_profile(coord1, coord2)
         U = self.U_profile(coord1, coord2)
         P = np.sqrt(Q.data**2 + U.data**2)
-        return ndcube.NDCube(P, Q.wcs)
+        return StokesProfile(P, Q.wcs)
     
     def theta_profile(self, coord1, coord2):
         """Linear polarization angle theta = 0.5 arctan(U/Q) profile at a specific coordinate"""
         Q = self.Q_profile(coord1, coord2)
         U = self.U_profile(coord1, coord2)
         theta = np.arctan2(U.data, Q.data)
-        return ndcube.NDCube(np.degrees(theta) * u.degree, Q.wcs)
+        return StokesProfile(np.degrees(theta) * u.degree, Q.wcs)
+
+    def plot(self, wavelength=None, coord1=None, coord2=None):
+        """Plot all Stokes parameters"""
+        print(f"TODO: implement {type(self)}.plot()")
 
 
 class MagVectorCube(ndcube.NDCube):
