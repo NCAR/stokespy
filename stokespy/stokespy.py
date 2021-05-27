@@ -3,6 +3,8 @@ import ndcube
 import astropy.wcs
 import astropy.units as u
 
+from . import plotting
+
 class StokesParamCube(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
     def plot(self, wavelength=None, coord1=None, coord2=None):
@@ -20,9 +22,12 @@ class StokesParamMap(ndcube.ndcube.NDCubeBase):
 class StokesProfile(ndcube.ndcube.NDCubeBase):
     """Class representing a profile of a single Stokes parameter with dimensions (wavelength)
     """
-    def plot(self):
+    def plot(self, ax=None, **kwargs):
         """Plot a Stokes profile"""
-        print(f"TODO: implement {type(self)}.plot()")
+        n_spectral = self.data.size
+        print("XXX", self.wcs)
+        spectral_axis = self.wcs[:].array_index_to_world(np.arange(n_spectral))
+        plotting._plot_profile(spectral_axis, self.data, ax=ax, **kwargs)
 
 class StokesCube(ndcube.ndcube.NDCubeBase):
     """
