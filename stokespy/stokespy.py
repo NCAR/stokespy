@@ -3,6 +3,26 @@ import ndcube
 import astropy.wcs
 import astropy.units as u
 
+def make_def_wcs(naxis=3, ctype=None, cunit=None):
+    """
+    Function that generates a default wcs object.
+    
+    Parameters
+    -----------
+    naxis: `int`
+        Number of axes that the NDCube will have.
+    ctype: `tuple`
+        Tuple of strings containing the axes types.
+    cunit: `tuple`
+        Tuple of strings containing the units for each axes. Must have the same number of elements as ctype.
+    """
+    wcs = astropy.wcs.WCS(naxis=naxis)
+    wcs.wcs.ctype = ctype
+    wcs.wcs.cunit = cunit
+    wcs.wcs.set()
+    return wcs
+
+
 class StokesParamCube(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
     def plot(self, wavelength=None, coord1=None, coord2=None):
@@ -55,10 +75,8 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             # Define a default WCS where coordinates and wavelength axis are
             # in pixel units.  Note: cannot use "WAVE" ctype;
             # astropy.wcs.WCS enforces length units for that name
-            wcs = astropy.wcs.WCS(naxis=4)
-            wcs.wcs.ctype = ["COORD2", "COORD1", "WAVEIX", "STOKES"]
-            wcs.wcs.cunit = ['pix', 'pix', 'pix', '']
-            wcs.wcs.set()
+            wcs = make_def_wcs(naxis=4, ctype=["COORD2", "COORD1", "WAVEIX", "STOKES"], 
+                               cunit=['pix', 'pix', 'pix', ''])
 
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
@@ -260,10 +278,9 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         """Plot all Stokes parameters"""
         print(f"TODO: implement {type(self)}.plot()")
 
-
-class MagVectorCube(ndcube.NDCube):
+class MagVectorCube(ndcube.ndcube.NDCubeBase):
     """
-    Class representing a 2D map of inverted magnetic field vectors
+    Class representing a 2D map of inverted magnetic field vectors.
     
     Parameters
     ----------
@@ -279,15 +296,12 @@ class MagVectorCube(ndcube.NDCube):
         Tuple containing all or part of the magnetic field components ('B', 'inclination', 'azimuth')
     
     """
+    
     def __init__(self, data, wcs=None, magnetic_params=('B', 'inclination', 'azimuth'), **kwargs):
         if wcs is None:
-            # Define a default WCS where coordinates and wavelength axis are
-            # in pixel units.  Note: cannot use "WAVE" ctype;
-            # astropy.wcs.WCS enforces length units for that name
-            wcs = astropy.wcs.WCS(naxis=3)
-            wcs.wcs.ctype = ["COORD2", "COORD1", "Parameter"]
-            wcs.wcs.cunit = ['pix', 'pix', '']
-            wcs.wcs.set()
+            # Define a default WCS where coordinates are defined in pixel units.  
+            wcs = make_def_wcs(naxis=3, ctype=["COORD2", "COORD1", "Parameter"],
+                               cunit=['pix', 'pix', ''])
 
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
@@ -297,8 +311,7 @@ class MagVectorCube(ndcube.NDCube):
             raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, "+
                             f"but {magnetic_params} parameters ({len(magnetic_params)} were expected")
         self._magnetic_axis = magnetic_params
-        # TODO: stokes index map for N params < 4; use below
-
+        
     @property
     def magnetic_axis(self):
         """The available magnetic parameters"""
@@ -310,16 +323,16 @@ class MagVectorCube(ndcube.NDCube):
         return newcube
     
     @property
-    def B_map(self):
+    def B(self):
         """Magnetic field strength as a 2D NDcube (coord1, coord2)"""
         return self._magnetic_map(0)
 
     @property
-    def inclination_map(self):
+    def inclination(self):
         """Magnetic inclination as a 2D NDCube (coord1, coord2)"""
-        return self._stokes_slice(1)
+        return self._magnetic_map(1)
         
     @property
-    def azimuth_map(self):
+    def azimuth(self):
         """Magnetic azimuth as 2D NDCube (coord1, coord2)"""
-        return self._stokes_slice(2)
+        return self._magnetic_map(2)
