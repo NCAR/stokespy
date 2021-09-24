@@ -1,0 +1,12 @@
+default_context:
+  package_name: stokespy
+  module_name: stokespy
+  short_description: Open-source (future) SunPy affiliated package for the visualization and analyis of solar spectropolarimetric data and inversion results.
+  author_name: Gabriel Dima
+  author_email: gdima@ucar.edu
+  license: BSD 3-Clause
+  project_url: 
+  github_repo: NCAR/stokespy
+  minimum_python_version: 3.8
+  use_compiled_extensions: n
+  include_example_code: n
