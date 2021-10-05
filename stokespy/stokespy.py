@@ -2,6 +2,9 @@ import numpy as np
 import ndcube
 import astropy.wcs
 import astropy.units as u
+import matplotlib.pyplot as plt
+
+from . import plotting
 
 def make_def_wcs(naxis=3, ctype=None, cunit=None):
     """
@@ -25,25 +28,106 @@ def make_def_wcs(naxis=3, ctype=None, cunit=None):
 
 class StokesParamCube(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
+    
+    def __init__(self, data, wcs, **kwargs):
+            
+        # Init base NDCube with data and wcs
+        super().__init__(data, wcs=wcs, **kwargs)
+        
+        # Define spectral_axis attribute from WCS
+        self.n_spectral = self.data.shape[0]
+        self._spectral_axis = self.wcs[:,0,0].array_index_to_world(np.arange(self.n_spectral))
+        print(self.wcs)
+    
+    def _spectral_slice(self):
+        """Slice of the WCS containing only the spectral axis"""
+        #n_spectral = self.data.shape[0]
+        wcs_slice = [0] * self.wcs.pixel_n_dim
+        wcs_slice[0] = slice(0, self.n_spectral)
+        wcs_slice = self.wcs.slice(wcs_slice)
+        return wcs_slice
+    
     def plot(self, wavelength=None, coord1=None, coord2=None):
+        
+        # Choose a default wavelength if none are provided.
+        if wavelength is None:
+            # Need a better way to select which wavelength to show.
+            ix = int(self._spectral_axis.shape[0]/2)
+
+        # Test if the wavelength provided is a Quantity object.
+        if isinstance(wavelength,astropy.units.Quantity):
+            nwav = len(self._spectral_axis)
+            ix = int(self._spectral_slice().world_to_array_index_values(wavelength))
+            # Check that the selected value falls within the wavelength array.
+            if (ix < 0) or (ix > self.n_spectral-1):
+                ix = 0 if ix < 0 else (self.n_spectral-1)
+                print('Warning: Wavelength selected outside of range: {} {}'.\
+                      format(self._spectral_axis[0], self._spectral_axis[-1]))
+                print('Defaulting to nearest wavelength at {}'.\
+                      format(self._spectral_axis[ix]))
+        
+        # Create the plot window.
+        image_display, ax = plt.subplots(nrows=1, ncols=1, figsize=[5, 5], dpi=120)
+        image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+        
+        ax.imshow(self.data[ix,:,:], origin='lower')
+        
         """Plot a slice of the Stokes parameter cube"""
         print(f"TODO: implement {type(self)}.plot()")
+        
+        
 
 class StokesParamMap(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of bandpass intensities of a single Stokes parameter 
     with dimensions (coord1, coord2).
-    """    
+    """
+    
     def plot(self):
         """Plot a map of bandpass intensities"""
-        print(f"TODO: implement {type(self)}.plot()")
+        print(f"TODO1: implement {type(self)}.plot()")
 
 class StokesProfile(ndcube.ndcube.NDCubeBase):
     """Class representing a profile of a single Stokes parameter with dimensions (wavelength)
     """
+    
+    def __init__(self, data, wcs, **kwargs):
+            
+        # Init base NDCube with data and wcs
+        super().__init__(data, wcs=wcs, **kwargs)
+        
+        # Define spectral_axis attribute from WCS
+        self.n_spectral = self.data.shape[0]
+        self._spectral_axis = self.wcs.array_index_to_world(np.arange(self.n_spectral))
+        print(self.wcs)
+    
+    def _spectral_slice(self):
+        """Slice of the WCS containing only the spectral axis"""
+        #n_spectral = self.data.shape[0]
+        wcs_slice = [0] * self.wcs.pixel_n_dim
+        wcs_slice[0] = slice(0, self.n_spectral)
+        wcs_slice = self.wcs.slice(wcs_slice)
+        return wcs_slice
+    
     def plot(self):
+    
+        print(self.n_spectral)
+        print(self._spectral_axis)
+        #n_spec = self.data.size
+        
+        # Create the plot window.
+        image_display, ax = plt.subplots(nrows=1, ncols=1, figsize=[4, 4], dpi=100)
+        image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+        
+        ax.plot(self._spectral_axis,self.data)
+        
+        # The object does not know which Stokes parameter it 
+        # represents.
+        ax.set_title('Stokes X')
+        ax.set_xlabel('Wavelength')
+        
         """Plot a Stokes profile"""
         print(f"TODO: implement {type(self)}.plot()")
-
+        
 class StokesCube(ndcube.ndcube.NDCubeBase):
     """
     Class representing a 2D map of Stokes profiles with dimensions (stokes, wavelength, coord1, coord2).
@@ -117,16 +201,17 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
 
     def _stokes_slice(self, stokes_ix, normalize=False):
         """Return a 3D NDCube (wavelength, coord1, coord2) for a given Stokes parameter"""
-        newcube = StokesParamCube(self.data, self.wcs)[stokes_ix]
+        
+        newcube = StokesParamCube(self.data[stokes_ix,:,:,:], self.wcs.dropaxis(3))
         if stokes_ix != 0:
             if self.normalize is True:
                 # Normalize by I
-                I = self._get_stokes_slice(0)
-                newcube = ndcube.NDCube(newcube.data / I.data, newcube.wcs)
+                I = self._stokes_slice(0)
+                newcube = StokesParamCube(newcube.data / I.data, newcube.wcs)
             elif self.normalize:
                 # normalize by non-zero float
                 # TODO: sanity check input
-                newcube = ndcube.NDCube(newcube.data / normalize, newcube.wcs)
+                newcube = StokesParamCube(newcube.data / normalize, newcube.wcs)
         return newcube
 
     @property
@@ -176,6 +261,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
     
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
+        
         n_spectral = self.data.shape[1]
         wcs_slice = [0] * self.wcs.naxis
         wcs_slice[1] = slice(0, n_spectral)
@@ -233,8 +319,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
         # TODO: allow to specify coords in physical units
         newcube = self._stokes_slice(stokes_ix)
-        newcube = newcube[:, coord1, coord2]
-        return StokesProfile(newcube.data, newcube.wcs)
+        return StokesProfile(newcube.data[:,coord1,coord2], newcube.wcs.sub(['spectral']))
     
     def I_profile(self, coord1, coord2):
         """Intensity profile at a specific coordinate"""
@@ -275,9 +360,62 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         return StokesProfile(np.degrees(theta) * u.degree, Q.wcs)
 
     def plot(self, wavelength=None, coord1=None, coord2=None):
-        """Plot all Stokes parameters"""
-        print(f"TODO: implement {type(self)}.plot()")
+        """Create a four panel plot showing I,Q,U,V maps at a specific wavelength"""
 
+        if (coord1 and coord2): 
+            # Plot a four panel plot showing I,Q,U,V wavelengths at point(coord1, coord2)
+        
+             # Create the plot window.
+            image_display, ax = plt.subplots(nrows=4, ncols=1, figsize=[2, 5], dpi=100)
+            image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+
+            ax[0].plot(self.data[0,:,coord1,coord2])
+            ax[1].plot(self.data[1,:,coord1,coord2])
+            ax[2].plot(self.data[2,:,coord1,coord2])
+            ax[3].plot(self.data[3,:,coord1,coord2])
+            
+            ax[0].set_title('I')
+            ax[1].set_title('Q')
+            ax[2].set_title('U')
+            ax[3].set_title('V')
+            
+        elif (coord1 is None) and (coord2 is None):
+            # Choose a default wavelength if none are provided.
+            if wavelength is None:
+                # Need a better way to select which wavelength to show.
+                ix = int(self._spectral_axis.shape[0]/2)
+            elif isinstance(wavelength,astropy.units.Quantity):
+                # Test if the wavelength provided is a Quantity object.
+                nwav = len(self._spectral_axis)
+                ix = int(self._spectral_slice().world_to_array_index_values(wavelength))
+                # Check that the selected value falls within the wavelength array.
+                if (ix < 0) or (ix > nwav-1):
+                    ix = 0 if ix < 0 else (nwav-1)
+                    print('Warning: Wavelength selected outside of range: {} {}'.\
+                          format(self._spectral_axis[0], self._spectral_axis[-1]))
+                    print('Defaulting to nearest wavelength at {}'.\
+                          format(self._spectral_axis[ix]))
+            elif isinstance(wavelength, int):
+                # Wavelength is array index.
+                ix = wavelength
+                    
+            # Create the plot window.
+            image_display, ax = plt.subplots(nrows=2, ncols=2, figsize=[8, 8], dpi=120)
+            image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+
+            ax[0,0].imshow(self.data[0,ix,:,:], origin='lower', aspect='auto')
+            ax[0,1].imshow(self.data[1,ix,:,:], origin='lower', aspect='auto')
+            ax[1,0].imshow(self.data[2,ix,:,:], origin='lower', aspect='auto')
+            ax[1,1].imshow(self.data[3,ix,:,:], origin='lower', aspect='auto')
+
+            ax[0,0].set_title('I')
+            ax[0,1].set_title('Q')
+            ax[1,0].set_title('U')
+            ax[1,1].set_title('V')
+        
+        """Plot all Stokes parameters"""
+        print(f"TODO1: implement {type(self)}.plot()")
+        
 class MagVectorCube(ndcube.ndcube.NDCubeBase):
     """
     Class representing a 2D map of inverted magnetic field vectors.
