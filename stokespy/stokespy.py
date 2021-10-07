@@ -5,6 +5,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 
 from . import plotting
+from matplotlib.widgets import Slider, Button
 
 def make_def_wcs(naxis=3, ctype=None, cunit=None):
     """
@@ -34,29 +35,30 @@ class StokesParamCube(ndcube.ndcube.NDCubeBase):
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
         
-        # Define spectral_axis attribute from WCS
+        ## Define spectral_axis attribute from WCS
+        # Find the axis index corresponding to the spectral axis
+        #ax_types = self.wcs.get_axis_types()
+        #for i in range(len(ax_types)):
+        #    if ax_types[i]['coordinate_type'] == 'spectral':
+        #        iax = len(ax_types) - 1 - i 
+        #self.n_spectral = self.data.shape[iax]
+        
         self.n_spectral = self.data.shape[0]
-        self._spectral_axis = self.wcs[:,0,0].array_index_to_world(np.arange(self.n_spectral))
+        self._spectral_axis = self._spectral_slice().array_index_to_world(np.arange(self.n_spectral))
         print(self.wcs)
-    
+        
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
-        #n_spectral = self.data.shape[0]
-        wcs_slice = [0] * self.wcs.pixel_n_dim
-        wcs_slice[0] = slice(0, self.n_spectral)
-        wcs_slice = self.wcs.slice(wcs_slice)
-        return wcs_slice
+        return self.wcs.sub(['spectral'])
     
     def plot(self, wavelength=None, coord1=None, coord2=None):
         
-        # Choose a default wavelength if none are provided.
         if wavelength is None:
             # Need a better way to select which wavelength to show.
             ix = int(self._spectral_axis.shape[0]/2)
 
         # Test if the wavelength provided is a Quantity object.
         if isinstance(wavelength,astropy.units.Quantity):
-            nwav = len(self._spectral_axis)
             ix = int(self._spectral_slice().world_to_array_index_values(wavelength))
             # Check that the selected value falls within the wavelength array.
             if (ix < 0) or (ix > self.n_spectral-1):
@@ -68,14 +70,45 @@ class StokesParamCube(ndcube.ndcube.NDCubeBase):
         
         # Create the plot window.
         image_display, ax = plt.subplots(nrows=1, ncols=1, figsize=[5, 5], dpi=120)
-        image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+        image_display.subplots_adjust(bottom=0.25, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
         
-        ax.imshow(self.data[ix,:,:], origin='lower')
+        img_plot = ax.imshow(self.data[ix,:,:], origin='lower')
+        
+        # adjust the main plot to make room for the sliders
+        #plt.subplots_adjust(left=0.25, bottom=0.25)
+        # Make a horizontal slider to control the frequency.
+        axcolor = 'lightgoldenrodyellow'
+        wav_ax = plt.axes([0.25, 0.1, 0.55, 0.06], facecolor=axcolor)
+        allowed_vals = []
+        for i in range(len(self._spectral_axis)):
+            allowed_vals.append(self._spectral_axis[i].value)
+        allowed_vals = np.asarray(allowed_vals)
+        print(allowed_vals)
+        wav_slider = Slider(
+            ax=wav_ax,
+            label='Wavelength',
+            valmin=self._spectral_axis[0].value,
+            valmax=self._spectral_axis[-1].value,
+            valinit=self._spectral_axis[0].value,
+            valstep=allowed_vals
+        )
+        
+        def f(wavelength):
+            ixt = int(self._spectral_slice().world_to_array_index_values(wavelength))
+            return self.data[ixt,:,:]
+        
+        # The function to be called anytime a slider's value changes
+        def update(val):
+            img_plot.set_data(f(wav_slider.val))
+            image_display.canvas.draw_idle()
+        
+        # register the update function with each slider
+        wav_slider.on_changed(update)
         
         """Plot a slice of the Stokes parameter cube"""
         print(f"TODO: implement {type(self)}.plot()")
         
-        
+        plt.show()
 
 class StokesParamMap(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of bandpass intensities of a single Stokes parameter 
@@ -102,12 +135,8 @@ class StokesProfile(ndcube.ndcube.NDCubeBase):
     
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
-        #n_spectral = self.data.shape[0]
-        wcs_slice = [0] * self.wcs.pixel_n_dim
-        wcs_slice[0] = slice(0, self.n_spectral)
-        wcs_slice = self.wcs.slice(wcs_slice)
-        return wcs_slice
-    
+        return self.wcs.sub(['spectral'])
+        
     def plot(self):
     
         print(self.n_spectral)
@@ -169,14 +198,15 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         # Check and define Stokes axis
         if len(stokes_params) != self.data.shape[0]:
             raise Exception(f"Data contains {self.data.shape[0]} Stokes parameters, "+
-                            f"but {stokes_params} parameters ({len(stokes_params)} were expected")
+                            f"but {len(stokes_params)} parameters  were expected: {stokes_params}")
         self._stokes_axis = stokes_params
         # TODO: stokes index map for N params < 4; use below
 
         # Define spectral_axis attribute from WCS
-        n_spectral = self.data.shape[1]
-        self._spectral_axis = self.wcs[0,:,0,0].array_index_to_world(np.arange(n_spectral))
-
+        self.n_spectral = self.data.shape[1]
+        #self._spectral_axis = self.wcs[0,:,0,0].array_index_to_world(np.arange(n_spectral))
+        self._spectral_axis = self._spectral_slice().array_index_to_world(np.arange(self.n_spectral))
+        
     @property
     def stokes_axis(self):
         """The available Stokes parameters"""
@@ -261,21 +291,62 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
     
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
-        
-        n_spectral = self.data.shape[1]
-        wcs_slice = [0] * self.wcs.naxis
-        wcs_slice[1] = slice(0, n_spectral)
-        wcs_slice = self.wcs.slice(wcs_slice)
-        return wcs_slice
+        return self.wcs.sub(['spectral'])
     
     def _stokes_map(self, stokes_ix, wavelength, stop_wavelength=None):
         """Return a 2D NDCube (coord1, coord2) for a given Stokes parameter and wavelength selection"""        
         newcube = self._stokes_slice(stokes_ix)
         spectral_wcs = self._spectral_slice()
-        ix = int(spectral_wcs.world_to_array_index_values(wavelength))
-        # TODO: understand how the binning is done better...
-        newcube = newcube[ix]
-        return StokesParamMap(newcube.data, newcube.wcs)
+        ix_0 = int(spectral_wcs.world_to_array_index_values(wavelength))
+        nwav = self.n_spectral
+        
+        # Test if the selected value fits within the wavelength axis.
+        if (ix_0 < 0) or (ix_0 > nwav-1):
+            if stop_wavelength is None:
+                # If only a single wavelength is given set default to the 
+                # limit closest to the value given.
+                ix_0 = 0 if ix_0 < 0 else (nwav-1)
+            else:
+                # If both wavelengths are provided set the starting wavelength to 
+                # the starting wavelength in the spectral axis.
+                ix_0 = 0
+                
+            print('Warning: Wavelength selected outside of range: {} {}'.\
+                  format(self._spectral_axis[0], self._spectral_axis[-1]))
+            print('Defaulting to nearest wavelength at {}'.\
+                  format(self._spectral_axis[ix_0]))
+        
+        # Test if a range of wavelengths is selected.
+        if stop_wavelength is None:
+            new_data = newcube.data[ix_0,:,:]
+            return StokesParamMap(new_data, newcube.wcs.dropaxis(2))
+            
+        elif stop_wavelength is not None:
+            ix_n = int(spectral_wcs.world_to_array_index_values(stop_wavelength))
+            # Test if the selected value fits within the wavelength axis.
+            # Default value is the end of the wavelength axis.
+            if (ix_n < 0) or (ix_0 > nwav-1):
+                ix_n = nwav-1
+                print('Warning: Wavelength selected outside of range: {} {}'.\
+                      format(self._spectral_axis[0], self._spectral_axis[-1]))
+                print('Defaulting to nearest wavelength at {}'.\
+                      format(self._spectral_axis[ix_n]))
+            
+            print("Limits = ", ix_0, ix_n)
+            
+            # Select the data within the selected wavelength limits.
+            new_data = newcube.data[ix_0:ix_n,:,:]
+            
+            # Modify the WCS for the spectral coordinate to reflect
+            # the reduced wavelength range.
+            new_spec_axis = newcube._spectral_axis[ix_0:ix_n]
+            
+            wcs_header = newcube.wcs.to_header()
+            wcs_header["CRPIX3"] = len(new_spec_axis)/2.0 + 0.5
+            wcs_header["CRVAL3"] = np.mean(new_spec_axis.value)
+            
+            return StokesParamCube(new_data, astropy.wcs.WCS(wcs_header))
+        
     
     def I_map(self, wavelength, stop_wavelength=None):
         """Intensity as a 2D NDCube (coord1, coord2)"""
