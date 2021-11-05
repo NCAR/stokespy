@@ -27,6 +27,8 @@ def make_def_wcs(naxis=3, ctype=None, cunit=None):
     return wcs
 
 
+from . import plotting
+
 class StokesParamCube(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
     
@@ -121,8 +123,7 @@ class StokesParamMap(ndcube.ndcube.NDCubeBase):
 
 class StokesProfile(ndcube.ndcube.NDCubeBase):
     """Class representing a profile of a single Stokes parameter with dimensions (wavelength)
-    """
-    
+    """   
     def __init__(self, data, wcs, **kwargs):
             
         # Init base NDCube with data and wcs

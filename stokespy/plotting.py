@@ -9,7 +9,7 @@ def _subplots(ax=None, **kwargs):
         fig = plt.gcf()
     return fig,ax
 
+
 def _plot_profile(wavelength, data, ax=None, **kwargs):
     fig, ax = _subplots(ax)
     ax.plot(wavelength, data, **kwargs)
-    
