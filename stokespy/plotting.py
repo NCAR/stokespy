@@ -65,4 +65,3 @@ def _plot_3d_cube(wavelengths, data, ax=None, proj=None, meta=None, init=0, **kw
     plt.show()
     
     return wav_slider
-

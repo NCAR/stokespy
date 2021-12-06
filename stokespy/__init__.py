@@ -1,3 +1,4 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 from .stokespy import StokesCube, StokesParamCube, StokesParamMap, StokesProfile, MagVectorCube 
 
 from .instload import get_HMI_data, get_SP_data
