@@ -2,6 +2,8 @@ import numpy as np
 import ndcube
 import astropy.wcs
 import astropy.units as u
+import astropy.coordinates
+from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs.wcsapi import SlicedLowLevelWCS, HighLevelWCSWrapper
 
 import matplotlib.pyplot as plt
@@ -27,9 +29,6 @@ def make_def_wcs(naxis=3, ctype=None, cunit=None):
     wcs.wcs.cunit = cunit
     wcs.wcs.set()
     return wcs
-
-
-from . import plotting
 
 class StokesParamCube(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
@@ -229,9 +228,12 @@ class StokesProfile(ndcube.ndcube.NDCubeBase):
         # Assume only a single spectral dimension.
         return self.wcs.low_level_wcs
         
-    def plot(self):
+    def plot(self, plot_u=u.nm):
     
-        plotting._plot_profile(self._spectral_axis,self.data)
+        # Plot using nm as units.
+        tmp_var = u.Quantity(1, self.wcs.world_axis_units[0])
+    
+        plotting._plot_profile(self._spectral_axis*tmp_var, self.data, plot_u, meta=self.meta)
     
         #print(self.n_spectral)
         #print(self._spectral_axis)
@@ -288,6 +290,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
         self.normalize = normalize
+        self._frame = None
         self.n_spectral = None
         self._spectral_axis = None
         self._stokes_axis = None
@@ -303,7 +306,12 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             # Define spectral_axis attribute from WCS
             self.n_spectral = self.data.shape[1]
             self._spectral_axis = self._spectral_slice().array_index_to_world_values(np.arange(self.n_spectral))
-        
+            
+            # Define the observer frame if it exists.
+            tmp_var = np.zeros(self.wcs.pixel_n_dim, dtype='int')
+            self.meta['frame'] = self.wcs.pixel_to_world(*tmp_var)[0].frame
+            self._frame = self.meta['frame']
+            
     @property
     def stokes_axis(self):
         """The available Stokes parameters"""
@@ -314,6 +322,11 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         """The spectral axis in physical units"""
         return self._spectral_axis
 
+    @property
+    def frame(self):
+        "The observed frame for the dat if it exists"
+        return self._frame
+    
     def _spectral_slice(self):
         """Slice of the WCS containing only the spectral axis"""
         wcs_slice = [0] * self.wcs.pixel_n_dim
@@ -333,6 +346,10 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         n_coord2 = self.data.shape[3]
         return self.wcs[0,0,coord1,:].array_index_to_world(np.arange(n_coord2))
 
+    ##############################
+    ####### Stokes Slices ########
+    ##############################
+    
     def _stokes_slice(self, stokes_ix, normalize=False):
         """Return a 3D NDCube (wavelength, coord1, coord2) for a given Stokes parameter"""
         
@@ -409,6 +426,10 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         U = self.U
         theta = 0.5 * np.arctan2(U.data, Q.data)
         return StokesParamCube(np.degrees(theta) * u.degree, Q.wcs, meta={'stokes': 'theta'})
+
+    ###########################
+    ####### Stokes Maps #######
+    ###########################
     
     def _stokes_map(self, stokes_ix, wavelength, stop_wavelength=None):
         """Return a 2D NDCube (coord1, coord2) for a given Stokes parameter and wavelength selection"""        
@@ -520,50 +541,84 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         meta['stokes'] = 'theta'
         return StokesParamMap(np.degrees(theta) * u.degree, Q.wcs, meta=meta)
     
-    def _stokes_profile(self, stokes_ix, coord1, coord2):
+    ##############################
+    ####### Stokes Profile #######
+    ##############################
+    
+    def _stokes_profile(self, stokes_ix, coords):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
         # TODO: allow to specify coords in physical units
+        if (isinstance(coords, list) or isinstance(coords, tuple)) and (len(coords) == 2):
+            if isinstance(coords[0], u.Quantity) and isinstance(coords[1], u.Quantity):
+                coords = SkyCoord(Tx = coords[0], Ty= coords[1], frame=self.frame)
+        elif isinstance(coords, SkyCoord):
+            if coords.frame.__class__ is astropy.coordinates.builtin_frames.icrs.ICRS:
+                """This is the default frame"""
+                Tx = coords.ra.to(self.wcs.world_axis_units[0])
+                Ty = coords.dec.to(self.wcs.world_axis_units[1])
+                coords = SkyCoord(Tx = Tx, Ty = Ty, frame = self.frame)
+        else:
+            print('Invalid coordinate type.')
+            return
+        
+        wav0 = (self._spectral_axis[0]*u.m).to(self.wcs.world_axis_units[2])
         newcube = self._stokes_slice(stokes_ix)
         #newcube = self._stokes_slice(stokes_ix)[:,coord1,coord2]
-        newcube = newcube[:,coord1,coord2] 
-        return StokesProfile(newcube.data, newcube.wcs)
         
-    def I_profile(self, coord1, coord2):
+        pix_coords = newcube.wcs.world_to_array_index(coords, wav0)
+        
+        newcube = newcube[:,pix_coords[1],pix_coords[2]]
+        newcube.meta['x0_i'] = pix_coords[2]
+        newcube.meta['y0_i'] = pix_coords[1]
+        newcube.meta['x0'] = self.coord2_axis(0)[pix_coords[2]].Tx
+        newcube.meta['y0'] = self.coord1_axis(0)[pix_coords[1]].Ty
+        
+        #bottom_left_skycoord = SkyCoord(Tx= -700 * u.arcsec, Ty= -700 * u.arcsec, frame=obs_frame)
+        #top_right_skycoord = SkyCoord(Tx= 700* u.arcsec, Ty= 700 * u.arcsec, frame=obs_frame)
+        return StokesProfile(newcube.data, newcube.wcs, meta=newcube.meta)
+        
+    def I_profile(self, coords):
         """Intensity profile at a specific coordinate"""
-        return self._stokes_profile(0, coord1, coord2)
+        return self._stokes_profile(0, coords)
     
-    def Q_profile(self, coord1, coord2):
+    def Q_profile(self, coords):
         """Linear polarization Q profile at a specific coordinate"""
-        return self._stokes_profile(1, coord1, coord2)
+        return self._stokes_profile(1, coords)
     
-    def U_profile(self, coord1, coord2):
+    def U_profile(self, coords):
         """Linear polarization U profile at a specific coordinate"""
-        return self._stokes_profile(2, coord1, coord2)
+        return self._stokes_profile(2, coords)
     
-    def V_profile(self, coord1, coord2):
+    def V_profile(self, coords):
         """Circular polarization profile at a specific coordinate"""
-        return self._stokes_profile(3, coord1, coord2)
+        return self._stokes_profile(3, coords)
     
-    def P_profile(self, coord1, coord2):
+    def P_profile(self, coords):
         """Total polarization P = sqrt(Q**2 + U**2 + V**2) profile at a specific coordinate"""
-        Q = self.Q_profile(coord1, coord2)
-        U = self.U_profile(coord1, coord2)
-        V = self.V_profile(coord1, coord2)
+        Q = self.Q_profile(coords)
+        U = self.U_profile(coords)
+        V = self.V_profile(coords)
         P = np.sqrt(Q.data**2 + U.data**2 + V.data**2)
-        return StokesProfile(P, Q.wcs)
+        meta = Q.meta
+        meta['stokes'] = 'P'
+        return StokesProfile(P, Q.wcs, meta=meta)
     
-    def L_profile(self, coord1, coord2):
+    def L_profile(self, coords):
         """Linear polarization L = sqrt(Q**2 + U**2) profile at a specific coordinate"""        
-        Q = self.Q_profile(coord1, coord2)
-        U = self.U_profile(coord1, coord2)
-        P = np.sqrt(Q.data**2 + U.data**2)
-        return StokesProfile(P, Q.wcs)
+        Q = self.Q_profile(coords)
+        U = self.U_profile(coords)
+        L = np.sqrt(Q.data**2 + U.data**2)
+        meta = Q.meta
+        meta['stokes'] = 'L'
+        return StokesProfile(L, Q.wcs, meta=meta)
     
-    def theta_profile(self, coord1, coord2):
+    def theta_profile(self, coords):
         """Linear polarization angle theta = 0.5 arctan(U/Q) profile at a specific coordinate"""
-        Q = self.Q_profile(coord1, coord2)
-        U = self.U_profile(coord1, coord2)
+        Q = self.Q_profile(coords)
+        U = self.U_profile(coords)
         theta = np.arctan2(U.data, Q.data)
+        meta=Q.meta
+        meta['stokes'] = 'theta'
         return StokesProfile(np.degrees(theta) * u.degree, Q.wcs)
 
     def plot(self, wavelength=None, coord1=None, coord2=None):
@@ -652,11 +707,11 @@ class MagVectorCube(ndcube.ndcube.NDCubeBase):
         # Init base NDCube with data and wcs
         super().__init__(data, wcs=wcs, **kwargs)
 
-        # Check and define Stokes axis
-        if len(magnetic_params) != self.data.shape[0]:
-            raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, "+
-                            f"but {magnetic_params} parameters ({len(magnetic_params)} were expected")
-        self._magnetic_axis = magnetic_params
+        if self.wcs.pixel_n_dim == 3:
+            # Check and define Stokes axis
+            if len(magnetic_params) != self.data.shape[0]:
+                raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, " + f"but {magnetic_params} parameters ({len(magnetic_params)} were expected") 
+            self._magnetic_axis = magnetic_params
         
     @property
     def magnetic_axis(self):
