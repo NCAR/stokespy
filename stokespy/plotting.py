@@ -23,6 +23,7 @@ def _plot_profile(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
     ax.plot(plot_wav.value, data, **kwargs)
     
     ax.set_title('Stokes ' + meta['stokes'])
+    
     x0_str = 'x0 = ' + str(round(meta['x0'].value, 1)) + ' ' + meta['x0'].unit.to_string()
     y0_str = 'y0 = ' + str(round(meta['y0'].value, 1)) + ' ' + meta['y0'].unit.to_string()
     ax.text(0.23, 0.95, x0_str, horizontalalignment='center', verticalalignment='center', transform=ax.transAxes) 
@@ -31,23 +32,37 @@ def _plot_profile(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
     ax.ticklabel_format(useOffset=False)
     ax.set_xlabel('Wavelength [' + plot_wav[0].unit.to_string() + ']')
     
-def _plot_image(data, ax=None, proj=None, meta=None, **kwargs):
+def _plot_image(data, ax=None, proj=None, meta=None, plot_title=None, **kwargs):
     fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[5, 5], dpi=120, subplot_kw={'projection':proj})
     fig.subplots_adjust(bottom=0.25, top=0.85, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
     
     ax.imshow(data, **kwargs)
     
-    if meta['wav1'] is None:
-        ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(meta['wav0']))
-    else:
-        ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda\in$ [' + str(meta['wav0']) + ' ' + str(meta['wav1']) + ']')
-
-def _plot_3d_cube(wavelengths, data, ax=None, proj=None, meta=None, init=0, **kwargs):
+    '''
+    if 'wav0' in meta:
+        #plot_wav0 = round(wavelengths[init].to().value,3)
+        if meta['wav1'] is None:
+            ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(meta['wav0']))
+        else:
+            ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda\in$ [' + str(meta['wav0']) + ' ' + str(meta['wav1']) + ']')
+    elif 'magnetic_param' in meta:
+        ax.set_title('Magnetic parameter: ' + meta['magnetic_param'])
+    '''
+    
+    ax.set_title(plot_title)
+    ax.set_xlabel('Helioprojective Longitude')
+    ax.set_ylabel('Helioprojective Latitude')
+    
+def _plot_3d_cube(wavelengths, data, plot_u, ax=None, proj=None, meta=None, init=0, **kwargs):
     fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[5, 5], dpi=120, subplot_kw={'projection':proj})
     fig.subplots_adjust(bottom=0.25, top=0.85, left=0.05, right=0.9, wspace=0.0, hspace=0.0)
     
     img_plot = ax.imshow(data[init,:,:], **kwargs)
-    ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(wavelengths[init]))
+    plot_wav = round(wavelengths[init].to(plot_u).value,3)
+    ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(plot_wav) + ' ' + str(plot_u))
+    
+    ax.set_xlabel('Helioprojective Longitude')
+    ax.set_ylabel('Helioprojective Latitude')
     
     # Make a horizontal slider to control the frequency.
     axcolor = 'lightgoldenrodyellow'
@@ -64,7 +79,8 @@ def _plot_3d_cube(wavelengths, data, ax=None, proj=None, meta=None, init=0, **kw
     # The function to be called anytime a slider's value changes
     def update(val):
         img_plot.set_data(f(val))
-        ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(wavelengths[val]))
+        plot_wav = round(wavelengths[val].to(plot_u).value,3)
+        ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(plot_wav) + ' ' + str(plot_u))
         fig.canvas.draw_idle()
 
     # register the update function with the slider
