@@ -6,7 +6,7 @@ import astropy.coordinates
 from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs.wcsapi import SlicedLowLevelWCS, HighLevelWCSWrapper
 
-import copy
+#import copy
 
 import matplotlib.pyplot as plt
 
@@ -273,7 +273,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         #newcube = StokesParamCube(self.data[stokes_ix,:,:,:], HighLevelWCSWrapper(wcs_slice), self._stokes_axis[stokes_ix])
         #cube_meta = {'stokes': self._stokes_axis[stokes_ix]}
         
-        cube_meta = copy.copy(self.meta)
+        cube_meta = self.meta.copy()
         cube_meta['stokes'] = self._stokes_axis[stokes_ix]
         newcube = StokesParamCube(self.data[stokes_ix,:,:,:], HighLevelWCSWrapper(wcs_slice), meta=cube_meta)
         
@@ -634,8 +634,8 @@ class MagVectorCube(ndcube.ndcube.NDCubeBase):
 
         if self.wcs.pixel_n_dim == 3:
             # Check and define Stokes axis
-            if len(magnetic_params) != self.data.shape[0]:
-                raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, " + f"but {magnetic_params} parameters ({len(magnetic_params)} were expected") 
+            #if len(magnetic_params) != self.data.shape[0]:
+                #raise Exception(f"Data contains {self.data.shape[0]} magnetic parameters, " + f"but {magnetic_params} parameters ({len(magnetic_params)} were expected") 
             self._magnetic_axis = magnetic_params
         
     @property
@@ -668,3 +668,15 @@ class MagVectorCube(ndcube.ndcube.NDCubeBase):
     def azimuth(self):
         """Magnetic azimuth as 2D NDCube (coord1, coord2)"""
         return self._magnetic_map(2)
+
+    def coord1_axis(self, coord2):
+        """The physical axis across the first spatial dimension"""
+        # TODO: allow coord2 to be None assuming uniform coord1, return 1D array structure
+        n_coord1 = self.data.shape[1]
+        return self.wcs[0,:,coord2].array_index_to_world(np.arange(n_coord1))
+
+    def coord2_axis(self, coord1):
+        """The physical axis across the second spatial dimension"""
+        # TODO: allow coord1 to be None assuming uniform coord2, return 1D array structure        
+        n_coord2 = self.data.shape[2]
+        return self.wcs[0,coord1,:].array_index_to_world(np.arange(n_coord2))

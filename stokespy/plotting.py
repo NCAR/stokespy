@@ -16,8 +16,9 @@ def _subplots(ax=None, **kwargs):
     return fig,ax
 
 def _plot_profile(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
-    fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[4, 4], dpi=100)
-    fig.subplots_adjust(bottom=0.15, top=0.9, left=0.15, right=0.90, wspace=0.0, hspace=0.0)
+    if ax is None:
+        fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[4, 4], dpi=100)
+        fig.subplots_adjust(bottom=0.15, top=0.9, left=0.15, right=0.90, wspace=0.0, hspace=0.0)
     
     plot_wav = wavelengths.to(plot_u)
     ax.plot(plot_wav.value, data, **kwargs)
@@ -32,22 +33,15 @@ def _plot_profile(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
     ax.ticklabel_format(useOffset=False)
     ax.set_xlabel('Wavelength [' + plot_wav[0].unit.to_string() + ']')
     
+    return fig, ax
+    
 def _plot_image(data, ax=None, proj=None, meta=None, plot_title=None, **kwargs):
-    fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[5, 5], dpi=120, subplot_kw={'projection':proj})
-    fig.subplots_adjust(bottom=0.25, top=0.85, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
     
+    if ax is None:
+        fig, ax = _subplots(ax, nrows=1, ncols=1, figsize=[5, 5], dpi=120, subplot_kw={'projection':proj})
+        fig.subplots_adjust(bottom=0.25, top=0.85, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
+
     ax.imshow(data, **kwargs)
-    
-    '''
-    if 'wav0' in meta:
-        #plot_wav0 = round(wavelengths[init].to().value,3)
-        if meta['wav1'] is None:
-            ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(meta['wav0']))
-        else:
-            ax.set_title('Stokes ' + meta['stokes'] + '\n $\lambda\in$ [' + str(meta['wav0']) + ' ' + str(meta['wav1']) + ']')
-    elif 'magnetic_param' in meta:
-        ax.set_title('Magnetic parameter: ' + meta['magnetic_param'])
-    '''
     
     ax.set_title(plot_title)
     ax.set_xlabel('Helioprojective Longitude')
