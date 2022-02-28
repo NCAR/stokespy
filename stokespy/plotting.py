@@ -33,8 +33,149 @@ def _plot_profile(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
     ax.ticklabel_format(useOffset=False)
     ax.set_xlabel('Wavelength [' + plot_wav[0].unit.to_string() + ']')
     
-    return fig, ax
+    return ax
+
+def _plot_all_profiles(wavelengths, data, plot_u, ax=None, meta=None, **kwargs):
+    """
+    ax: a list with four axis instances.
+    """
+    if ax is None:
+        fig, ax = _subplots(ax, nrows=4, ncols=1, figsize=[3, 5], dpi=100)
+        fig.subplots_adjust(bottom=0.1, top=0.95, left=0.15, right=0.90, wspace=0.0, hspace=0.0)
     
+    plot_wav = wavelengths.to(plot_u)
+    
+    ax[0].plot(plot_wav.value, data[0,:], **kwargs)
+    ax[1].plot(plot_wav.value, data[1,:], **kwargs)
+    ax[2].plot(plot_wav.value, data[2,:], **kwargs)
+    ax[3].plot(plot_wav.value, data[3,:], **kwargs)
+
+    ax[0].set_title('I', y=0.77, fontweight=700)
+    ax[1].set_title('Q', y=0.77, fontweight=700)
+    ax[2].set_title('U', y=0.77, fontweight=700)
+    ax[3].set_title('V', y=0.77, fontweight=700)
+
+    title_string = '(x0, y0) = (' + str(round(meta['x0'].value, 1)) + ', ' + \
+                    str(round(meta['y0'].value, 1)) + ') ' + meta['x0'].unit.to_string()
+    #x0_str = 'x0 = ' + str(round(meta['x0'].value, 1)) + ' ' + meta['x0'].unit.to_string()
+    #y0_str = 'y0 = ' + str(round(meta['y0'].value, 1)) + ' ' + meta['y0'].unit.to_string()
+    #ax[0].text(0.2, 1.22, x0_str, horizontalalignment='left', verticalalignment='center', transform=ax[0].transAxes) 
+    #ax[0].text(0.2, 1.1, y0_str, horizontalalignment='left', verticalalignment='center', transform=ax[0].transAxes) 
+    
+    ax[0].text(0.02, 1.1, title_string, fontsize=10, horizontalalignment='left', verticalalignment='center', transform=ax[0].transAxes)
+    
+    ax[3].ticklabel_format(useOffset=False)
+    ax[3].set_xlabel('Wavelength [' + plot_wav[0].unit.to_string() + ']')
+    
+    return ax
+
+def _plot_context_all_profiles(wavelengths, data, context_img, plot_u, init=0, proj=None, ax=None, meta=None, **kwargs):
+    """
+    ax: a list with axis instances.
+    """
+    
+    fig = plt.figure(constrained_layout=False)
+    gs0 = fig.add_gridspec(1, 2, left=0.1, right=0.95, width_ratios=[2, 1],
+                          hspace=0.2, wspace=0.2)
+
+    gs00 = gs0[0].subgridspec(2, 1, wspace=0.0, hspace=0.2, 
+                              width_ratios=[1], height_ratios=[5, 1])
+    gs01 = gs0[1].subgridspec(4, 1, hspace=0.0, wspace=0.0)
+    
+    context_ax = []
+    context_ax.append(fig.add_subplot(gs00[0,0], projection=proj))
+    context_ax.append(fig.add_subplot(gs00[1,0]))
+    
+    # Resize the slider axis. 
+    l, b, w, h = context_ax[1].get_position().bounds
+    scale_w = 0.7
+    scale_h = 0.7
+    context_ax[1].set_position([l + w*(1-scale_w)/2, b + h*(1-scale_w)/2, 
+                                w*scale_w, h*scale_w])
+    
+    stokes_ax = []
+    for a in range(4):
+        stokes_ax.append(fig.add_subplot(gs01[a]))
+    
+    #if ax is None:
+    #    fig, ax = _subplots(ax, nrows=4, ncols=1, figsize=[3, 5], dpi=100)
+    #    fig.subplots_adjust(bottom=0.1, top=0.95, left=0.15, right=0.90, wspace=0.0, hspace=0.0)
+    
+    # Plot the context image and selected point location.
+    img_plot = context_ax[0].imshow(context_img[init,:,:], origin='lower')
+    print(meta['x0_pix'], meta['y0_pix'])
+    context_ax[0].plot(meta['x0_pix'], meta['y0_pix'], '+r')
+    
+    # Plot the Stokes vectors.
+    plot_wav = wavelengths.to(plot_u)
+    
+    stokes_ax[0].plot(plot_wav.value, data[0,:], **kwargs)
+    stokes_ax[1].plot(plot_wav.value, data[1,:], **kwargs)
+    stokes_ax[2].plot(plot_wav.value, data[2,:], **kwargs)
+    stokes_ax[3].plot(plot_wav.value, data[3,:], **kwargs)
+
+    stokes_ax[0].set_title('I', y=0.75, fontweight=700, loc='center')
+    stokes_ax[1].set_title('Q', y=0.75, fontweight=700, loc='center')
+    stokes_ax[2].set_title('U', y=0.75, fontweight=700, loc='center')
+    stokes_ax[3].set_title('V', y=0.75, fontweight=700, loc='center')
+
+    # Plot the wavelength position shown in the context image.
+    wav_positions = []
+    for ax in stokes_ax:
+        y0, y1 = ax.get_ylim()
+        wav_positions.append(ax.plot([plot_wav[init].value, plot_wav[init].value], [y0,y1], '--k')[0])
+    
+    context_ax[0].set_xlabel('Helioprojective Longitude')
+    context_ax[0].set_ylabel('Helioprojective Latitude')
+    context_ax[0].set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(np.round(plot_wav[init],2)))
+    
+    #title_string = '(x0, y0) = (' + str(round(meta['x0'].value, 1)) + ', ' + \
+    #                str(round(meta['y0'].value, 1)) + ') ' + meta['x0'].unit.to_string()
+    title_string = 'x0 = ' + str(round(meta['x0'].value, 1)) + ' arcsec \n' + \
+                'y0 = ' + str(round(meta['y0'].value, 1)) + ' arcsec'
+    #x0_str = 'x0 = ' + str(round(meta['x0'].value, 1)) + ' ' + meta['x0'].unit.to_string()
+    #y0_str = 'y0 = ' + str(round(meta['y0'].value, 1)) + ' ' + meta['y0'].unit.to_string()
+    #ax[0].text(0.2, 1.22, x0_str, horizontalalignment='left', verticalalignment='center', transform=ax[0].transAxes) 
+    #ax[0].text(0.2, 1.1, y0_str, horizontalalignment='left', verticalalignment='center', transform=ax[0].transAxes) 
+    
+    stokes_ax[0].text(0.02, 1.03, title_string, fontsize=10, horizontalalignment='left', verticalalignment='bottom', transform=stokes_ax[0].transAxes)
+    
+    stokes_ax[3].ticklabel_format(useOffset=False)
+    stokes_ax[3].set_xlabel('Wavelength [' + plot_wav[0].unit.to_string() + ']')
+    
+    # Make a horizontal slider to control the frequency.
+    axcolor = 'lightgoldenrodyellow'
+    #wav_ax = plt.axes([0.25, 0.1, 0.55, 0.06], facecolor=axcolor)
+    allowed_vals = np.arange(0, len(plot_wav))
+    
+    wav_slider = Slider(ax=context_ax[1], label='Wavelength',
+            valmin=0, valmax=len(plot_wav)-1,
+            valinit=init, valstep=allowed_vals)
+
+    def f(ixt):
+        return context_img[ixt,:,:]
+    
+    # The function to be called anytime a slider's value changes
+    def update(val):
+        # Update the context image.
+        img_plot.set_data(f(val))
+        
+        # Update the wavelength position.
+        for wav_position in wav_positions:
+            wav_position.set_xdata([plot_wav[val].value, plot_wav[val].value])
+            
+        # Update the title
+        context_ax[0].set_title('Stokes ' + meta['stokes'] + '\n $\lambda$ = ' + str(np.round(plot_wav[val],2)))
+        fig.canvas.draw_idle()
+
+    # register the update function with the slider
+    wav_slider.on_changed(update)
+
+    plt.show()
+    
+    return wav_slider
+    
+
 def _plot_image(data, ax=None, proj=None, meta=None, plot_title=None, **kwargs):
     
     if ax is None:

@@ -245,13 +245,13 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         """The physical axis across the first spatial dimension"""
         # TODO: allow coord2 to be None assuming uniform coord1, return 1D array structure
         n_coord1 = self.data.shape[2]
-        return self.wcs[0,0,:,coord2].array_index_to_world(np.arange(n_coord1))
+        return self[0,0,:,coord2].wcs.array_index_to_world(np.arange(n_coord1))
 
     def coord2_axis(self, coord1):
         """The physical axis across the second spatial dimension"""
         # TODO: allow coord1 to be None assuming uniform coord2, return 1D array structure        
         n_coord2 = self.data.shape[3]
-        return self.wcs[0,0,coord1,:].array_index_to_world(np.arange(n_coord2))
+        return self[0,0,coord1,:].wcs.array_index_to_world(np.arange(n_coord2))
 
     ##############################
     ####### Stokes Slices ########
@@ -457,6 +457,23 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
     
     def _stokes_profile(self, stokes_ix, coords):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
+        
+        # Tranform input coordinates into a SkyCoord object.
+        coords, coords_pix = self._get_spatial_index(coords)
+        
+        newcube = self._stokes_slice(stokes_ix)
+        
+        newcube = newcube[:, coords_pix[0],coords_pix[1]]
+        newcube.meta['x0_pix'] = coords_pix[1]
+        newcube.meta['y0_pix'] = coords_pix[0]
+        newcube.meta['x0'] = self.coord2_axis(0)[coords_pix[1]].Tx
+        newcube.meta['y0'] = self.coord1_axis(0)[coords_pix[0]].Ty
+        
+        return StokesProfile(newcube.data, newcube.wcs, meta=newcube.meta)
+    
+    def _get_spatial_index(self,coords):
+        """Test if a wavelength is inside the wavelength axis for the object and return the array index corresponding to that wavelength """
+        
         # TODO: allow to specify coords in physical units
         if (isinstance(coords, list) or isinstance(coords, tuple)) and (len(coords) == 2):
             if isinstance(coords[0], u.Quantity) and isinstance(coords[1], u.Quantity):
@@ -469,21 +486,12 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
                 coords = SkyCoord(Tx = Tx, Ty = Ty, frame = self.frame)
         else:
             print('Invalid coordinate type.')
-            return
+            return None
         
-        wav0 = self._spectral_axis[0]
-        newcube = self._stokes_slice(stokes_ix)
+        coords_pix = self[0,0,:,:].wcs.world_to_array_index(coords)
         
-        pix_coords = newcube.wcs.world_to_array_index(coords, wav0)
-        
-        newcube = newcube[:,pix_coords[1],pix_coords[2]]
-        newcube.meta['x0_pix'] = pix_coords[2]
-        newcube.meta['y0_pix'] = pix_coords[1]
-        newcube.meta['x0'] = self.coord2_axis(0)[pix_coords[2]].Tx
-        newcube.meta['y0'] = self.coord1_axis(0)[pix_coords[1]].Ty
-        
-        return StokesProfile(newcube.data, newcube.wcs, meta=newcube.meta)
-        
+        return coords, coords_pix
+    
     def I_profile(self, coords):
         """Intensity profile at a specific coordinate"""
         return self._stokes_profile(0, coords)
@@ -528,27 +536,36 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         meta['stokes'] = 'theta'
         return StokesProfile(np.degrees(theta) * u.degree, Q.wcs)
 
-    def plot(self, wavelength=None, coord1=None, coord2=None):
+    ###############################################
+    ##### Plotting functionality for the cube #####
+    ###############################################
+    
+    def plot(self, wavelength=None, coords=None, context=None, plot_u=u.nm, **kwargs):
         """Create a four panel plot showing I,Q,U,V maps at a specific wavelength"""
-
-        if (coord1 and coord2): 
-            # Plot a four panel plot showing I,Q,U,V wavelengths at point(coord1, coord2)
         
-             # Create the plot window.
-            image_display, ax = plt.subplots(nrows=4, ncols=1, figsize=[2, 5], dpi=100)
-            image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
-
-            ax[0].plot(self.data[0,:,coord1,coord2])
-            ax[1].plot(self.data[1,:,coord1,coord2])
-            ax[2].plot(self.data[2,:,coord1,coord2])
-            ax[3].plot(self.data[3,:,coord1,coord2])
+        if (coords is not None): 
+            # Plot a four panel plot showing I,Q,U,V wavelengths at point(coord1, coord2)
+            # Tranform input coordinates into a SkyCoord object.
+            coords, coords_pix = self._get_spatial_index(coords)
             
-            ax[0].set_title('I')
-            ax[1].set_title('Q')
-            ax[2].set_title('U')
-            ax[3].set_title('V')
-            
-        elif (coord1 is None) and (coord2 is None):
+            plt_meta = self.meta.copy()
+            plt_meta['x0_pix'] = coords_pix[1]
+            plt_meta['y0_pix'] = coords_pix[0]
+            plt_meta['x0'] = self.coord2_axis(0)[coords_pix[1]].Tx
+            plt_meta['y0'] = self.coord1_axis(0)[coords_pix[0]].Ty
+            print(plt_meta)
+            if context is None:
+                
+                plotting._plot_all_profiles(self._spectral_axis,
+                                               self.data[:,:,coords_pix[0], coords_pix[1]], 
+                                               plot_u, meta=plt_meta, **kwargs)
+                
+                return
+            else:
+                plt_meta['stokes'] = self._stokes_axis[context]
+                wav_slider = plotting._plot_context_all_profiles(self._spectral_axis, self.data[:,:,coords_pix[0], coords_pix[1]], self.data[context,:,:,:], plot_u, proj=self[0,0,:,:].wcs, meta=plt_meta, **kwargs)
+                return wav_slider
+        elif coords is None:
             # Choose a default wavelength if none are provided.
             if wavelength is None:
                 # Need a better way to select which wavelength to show.
@@ -582,10 +599,9 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             ax[0,1].set_title('Q')
             ax[1,0].set_title('U')
             ax[1,1].set_title('V')
-        
-        """Plot all Stokes parameters"""
-        print(f"TODO1: implement {type(self)}.plot()")
-
+            
+            return
+    
 class MagVectorMap(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of one magnetic field component.
     with dimensions (coord1, coord2).
