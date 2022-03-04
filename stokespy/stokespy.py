@@ -553,19 +553,26 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             plt_meta['y0_pix'] = coords_pix[0]
             plt_meta['x0'] = self.coord2_axis(0)[coords_pix[1]].Tx
             plt_meta['y0'] = self.coord1_axis(0)[coords_pix[0]].Ty
-            print(plt_meta)
+            
             if context is None:
-                
-                plotting._plot_all_profiles(self._spectral_axis,
-                                               self.data[:,:,coords_pix[0], coords_pix[1]], 
-                                               plot_u, meta=plt_meta, **kwargs)
-                
-                return
+                wav_slider = plotting._plot_all_profiles(self._spectral_axis,
+                                            self.data[:,:,coords_pix[0], coords_pix[1]], 
+                                            self.data, plot_u, meta=plt_meta, 
+                                            proj=self[0,0,:,:].wcs, **kwargs)
+                return wav_slider
             else:
                 plt_meta['stokes'] = self._stokes_axis[context]
-                wav_slider = plotting._plot_context_all_profiles(self._spectral_axis, self.data[:,:,coords_pix[0], coords_pix[1]], self.data[context,:,:,:], plot_u, proj=self[0,0,:,:].wcs, meta=plt_meta, **kwargs)
+                wav_slider = plotting._plot_context_all_profiles(self._spectral_axis,
+                                                        self.data[:,:,coords_pix[0],coords_pix[1]], 
+                                                        self.data[context,:,:,:], plot_u,
+                                                        proj=self[0,0,:,:].wcs, meta=plt_meta,
+                                                        **kwargs)
                 return wav_slider
         elif coords is None:
+            # Default is to plot all four Stokes parameters.
+            wav_slider = plotting._plot_all_data(self._spectral_axis, self.data, plot_u, proj=self[0,0,:,:].wcs, meta=self.meta, **kwargs)
+            
+            '''
             # Choose a default wavelength if none are provided.
             if wavelength is None:
                 # Need a better way to select which wavelength to show.
@@ -599,8 +606,8 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             ax[0,1].set_title('Q')
             ax[1,0].set_title('U')
             ax[1,1].set_title('V')
-            
-            return
+            '''
+            return wav_slider
     
 class MagVectorMap(ndcube.ndcube.NDCubeBase):
     """Class representing a 2D map of one magnetic field component.
