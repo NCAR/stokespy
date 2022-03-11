@@ -10,8 +10,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'stokespy'
-copyright = '2020, Gabriel Dima'
-author = 'Gabriel Dima'
+copyright = '2020, Gabriel Dima & Ricky Egeland'
+author = 'Gabriel Dima & Ricky Egeland'
 
 # The full version, including alpha/beta/rc tags
 from stokespy import __version__
@@ -76,7 +76,9 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/',
                    (None, 'http://data.astropy.org/intersphinx/matplotlib.inv')),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
-    'sunpy': ('https://docs.sunpy.org/en/stable/', None)}
+    'sunpy': ('https://docs.sunpy.org/en/stable/', None),
+    'ndcube': ('https://docs.sunpy.org/projects/ndcube/en/stable', None),
+    'gwcs': ('https://gwcs.readthedocs.io/en/stable/', None)}
 
 # -- Options for HTML output -------------------------------------------------
 

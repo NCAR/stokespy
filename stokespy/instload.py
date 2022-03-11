@@ -253,6 +253,8 @@ def get_HMI_data(user_date, user_notify='gdima@hawaii.edu', user_dir=None, max_c
 def get_SP_data(user_date, user_dir=None, show_files=False):
     """
     Function that loads the Hinode SP observations associated with the the string user_date.
+
+    Parameters
     ----------
     user_date: string with format "yearmmdd_hhmmss" specifying the first observation in a scan sequence. 
     user_dir: Directory where the Level1 and Level2 data is located. We assume the data is
