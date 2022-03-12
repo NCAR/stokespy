@@ -32,7 +32,7 @@ def make_def_wcs(naxis=3, ctype=None, cunit=None):
     wcs.wcs.set()
     return wcs
 
-class StokesParamCube(ndcube.ndcube.NDCubeBase):
+class StokesParamCube(ndcube.ndcube.NDCube):
     """Class representing a 2D map of a single Stokes profile with dimensions (wavelength, coord1, coord2)."""
     
     def __init__(self, data, wcs, **kwargs):
@@ -54,7 +54,7 @@ class StokesParamCube(ndcube.ndcube.NDCubeBase):
         wcs_slice = SlicedLowLevelWCS(self.wcs.low_level_wcs, wcs_slice)
         return wcs_slice
     
-    def _get_index(self,wavelength):
+    def get_wav_ind(self,wavelength):
         """Test if a wavelength is inside the wavelength axis for the object and return the array index corresponding to that wavelength """
         
         # Test if the value is either an integer index or astropy quantity
@@ -92,14 +92,14 @@ class StokesParamCube(ndcube.ndcube.NDCubeBase):
             # Default to the first wavelength.
             ix = 0
         else:
-            ix = self._get_index(wavelength) 
+            ix = self.get_wav_ind(wavelength) 
         
         wav_slider = plotting._plot_3d_cube(self._spectral_axis, self.data, plot_u, proj=self[ix,:,:].wcs, meta=self.meta, init=ix, origin='lower', **kwargs)
         
         return wav_slider
 
 
-class StokesParamMap(ndcube.ndcube.NDCubeBase):
+class StokesParamMap(ndcube.ndcube.NDCube):
     """Class representing a 2D map of bandpass intensities of a single Stokes parameter 
     with dimensions (coord1, coord2).
     """
@@ -128,16 +128,20 @@ class StokesParamMap(ndcube.ndcube.NDCubeBase):
         
         plot_wav0 = round(self.meta['wav0'].to(plot_u).value,3)
         
+        plot_title = ''
+        if 'inst' in self.meta.keys():
+            plot_title += self.meta['inst'] + ' '
+        
         if self.meta['wav1'] is None:
-            plot_title = 'Stokes ' + self.meta['stokes'] + '\n $\lambda$ = ' + str(plot_wav0) + ' ' + str(plot_u)
+            plot_title += 'Stokes ' + self.meta['stokes'] + '\n $\lambda$ = ' + str(plot_wav0) + ' ' + str(plot_u)
         else:
             plot_wav1 = round(self.meta['wav1'].to(plot_u).value,3)
-            plot_title = 'Stokes ' + self.meta['stokes'] + '\n $\lambda\in$ [' + str(plot_wav0) + ', ' + str(plot_wav1) + '] ' + str(plot_u)
+            plot_title += 'Stokes ' + self.meta['stokes'] + '\n $\lambda\in$ [' + str(plot_wav0) + ', ' + str(plot_wav1) + '] ' + str(plot_u)
         
         plotting._plot_image(self.data, proj=self.wcs, meta=self.meta, origin='lower', plot_title=plot_title, **kwargs)
         
-    
-class StokesProfile(ndcube.ndcube.NDCubeBase):
+        
+class StokesProfile(ndcube.ndcube.NDCube):
     """Class representing a profile of a single Stokes parameter with dimensions (wavelength)
     """   
     def __init__(self, data, wcs, **kwargs):
@@ -160,7 +164,7 @@ class StokesProfile(ndcube.ndcube.NDCubeBase):
         plotting._plot_profile(self._spectral_axis, self.data, plot_u, meta=self.meta, **kwargs)
     
     
-class StokesCube(ndcube.ndcube.NDCubeBase):
+class StokesCube(ndcube.ndcube.NDCube):
     """
     Class representing a 2D map of Stokes profiles with dimensions (stokes, wavelength, coord1, coord2).
 
@@ -347,7 +351,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         newcube = self._stokes_slice(stokes_ix)
         
         # Starting index.
-        ix_0 = self._get_index(wavelength) 
+        ix_0 = self.get_wav_ind(wavelength) 
         wav0 = self._spectral_axis[ix_0]
         print('ix_0, wav0 = ', ix_0, wav0)
         newcube.meta['wav0'] = wav0
@@ -356,10 +360,10 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         ix_1 = None
         wav1 = None
         if stop_wavelength is not None:
-            if self._get_index(stop_wavelength) < ix_0:
+            if self.get_wav_ind(stop_wavelength) < ix_0:
                 print('Input stop_wavelength ahead of wavelength. Defaulting to the single wavelength map.')
             else:
-                ix_1 = self._get_index(stop_wavelength)
+                ix_1 = self.get_wav_ind(stop_wavelength)
                 wav1 = self._spectral_axis[ix_1]
             print('ix_1, wav1 = ', ix_1, wav1)
         newcube.meta['wav1'] = wav1
@@ -375,7 +379,7 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         newmap = StokesParamMap(newcube_data, newcube_wcs, meta=newcube.meta)
         return newmap
     
-    def _get_index(self,wavelength):
+    def get_wav_ind(self,wavelength):
         """Test if a wavelength is inside the wavelength axis for the object and return the array index corresponding to that wavelength """
         
         # Test if the value is either an integer index or astropy quantity
@@ -544,7 +548,6 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
         """Create a four panel plot showing I,Q,U,V maps at a specific wavelength"""
         
         if (coords is not None): 
-            # Plot a four panel plot showing I,Q,U,V wavelengths at point(coord1, coord2)
             # Tranform input coordinates into a SkyCoord object.
             coords, coords_pix = self._get_spatial_index(coords)
             
@@ -555,61 +558,22 @@ class StokesCube(ndcube.ndcube.NDCubeBase):
             plt_meta['y0'] = self.coord1_axis(0)[coords_pix[0]].Ty
             
             if context is None:
-                wav_slider = plotting._plot_all_profiles(self._spectral_axis,
+                return plotting._plot_all_profiles(self._spectral_axis,
                                             self.data[:,:,coords_pix[0], coords_pix[1]], 
                                             self.data, plot_u, meta=plt_meta, 
                                             proj=self[0,0,:,:].wcs, **kwargs)
-                return wav_slider
             else:
                 plt_meta['stokes'] = self._stokes_axis[context]
-                wav_slider = plotting._plot_context_all_profiles(self._spectral_axis,
+                return plotting._plot_context_all_profiles(self._spectral_axis,
                                                         self.data[:,:,coords_pix[0],coords_pix[1]], 
                                                         self.data[context,:,:,:], plot_u,
                                                         proj=self[0,0,:,:].wcs, meta=plt_meta,
                                                         **kwargs)
-                return wav_slider
         elif coords is None:
             # Default is to plot all four Stokes parameters.
-            wav_slider = plotting._plot_all_data(self._spectral_axis, self.data, plot_u, proj=self[0,0,:,:].wcs, meta=self.meta, **kwargs)
-            
-            '''
-            # Choose a default wavelength if none are provided.
-            if wavelength is None:
-                # Need a better way to select which wavelength to show.
-                ix = int(self._spectral_axis.shape[0]/2)
-            elif isinstance(wavelength,astropy.units.Quantity):
-                ix = self._get_index(wavelength)
-                # Test if the wavelength provided is a Quantity object.
-                nwav = len(self._spectral_axis)
-                ix = int(self._spectral_slice().world_to_array_index_values(wavelength))
-                # Check that the selected value falls within the wavelength array.
-                if (ix < 0) or (ix > nwav-1):
-                    ix = 0 if ix < 0 else (nwav-1)
-                    print('Warning: Wavelength selected outside of range: {} {}'.\
-                          format(self._spectral_axis[0], self._spectral_axis[-1]))
-                    print('Defaulting to nearest wavelength at {}'.\
-                          format(self._spectral_axis[ix]))
-            elif isinstance(wavelength, int):
-                # Wavelength is array index.
-                ix = wavelength
-                    
-            # Create the plot window.
-            image_display, ax = plt.subplots(nrows=2, ncols=2, figsize=[8, 8], dpi=120)
-            image_display.subplots_adjust(bottom=0.1, top=0.9, left=0.05, right=0.90, wspace=0.0, hspace=0.0)
-
-            ax[0,0].imshow(self.data[0,ix,:,:], origin='lower', aspect='auto')
-            ax[0,1].imshow(self.data[1,ix,:,:], origin='lower', aspect='auto')
-            ax[1,0].imshow(self.data[2,ix,:,:], origin='lower', aspect='auto')
-            ax[1,1].imshow(self.data[3,ix,:,:], origin='lower', aspect='auto')
-
-            ax[0,0].set_title('I')
-            ax[0,1].set_title('Q')
-            ax[1,0].set_title('U')
-            ax[1,1].set_title('V')
-            '''
-            return wav_slider
+            return plotting._plot_all_data(self._spectral_axis, self.data, plot_u, proj=self[0,0,:,:].wcs, meta=self.meta, **kwargs)
     
-class MagVectorMap(ndcube.ndcube.NDCubeBase):
+class MagVectorMap(ndcube.ndcube.NDCube):
     """Class representing a 2D map of one magnetic field component.
     with dimensions (coord1, coord2).
     """
@@ -627,7 +591,7 @@ class MagVectorMap(ndcube.ndcube.NDCubeBase):
         plotting._plot_image(self.data, proj=self.wcs, meta=self.meta, plot_title=plot_title, origin='lower', **kwargs)
                
 
-class MagVectorCube(ndcube.ndcube.NDCubeBase):
+class MagVectorCube(ndcube.ndcube.NDCube):
     """
     Class representing a 2D map of inverted magnetic field vectors.
     
