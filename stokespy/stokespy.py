@@ -463,7 +463,7 @@ class StokesCube(ndcube.ndcube.NDCube):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
         
         # Tranform input coordinates into a SkyCoord object.
-        coords, coords_pix = self._get_spatial_index(coords)
+        coords, coords_pix = self.get_spatial_ind(coords)
         
         newcube = self._stokes_slice(stokes_ix)
         
@@ -475,8 +475,8 @@ class StokesCube(ndcube.ndcube.NDCube):
         
         return StokesProfile(newcube.data, newcube.wcs, meta=newcube.meta)
     
-    def _get_spatial_index(self,coords):
-        """Test if a wavelength is inside the wavelength axis for the object and return the array index corresponding to that wavelength """
+    def get_spatial_ind(self,coords):
+        """Test if a set of coordinates fit inside the dimensions of the 2D images."""
         
         # TODO: allow to specify coords in physical units
         if (isinstance(coords, list) or isinstance(coords, tuple)) and (len(coords) == 2):
@@ -549,7 +549,7 @@ class StokesCube(ndcube.ndcube.NDCube):
         
         if (coords is not None): 
             # Tranform input coordinates into a SkyCoord object.
-            coords, coords_pix = self._get_spatial_index(coords)
+            coords, coords_pix = self.get_spatial_ind(coords)
             
             plt_meta = self.meta.copy()
             plt_meta['x0_pix'] = coords_pix[1]
