@@ -322,6 +322,7 @@ def load_HinodeSP_stokes(user_date, user_dir, show_files=False):
     """
     Function that loads the lvl 1 Hinode SP observations associated with the string user_date. The data for Hinode must be downloaded independently from the Hinode website.
     
+    Parameters
     ----------
     user_date: string with format "yearmmdd_hhmmss" specifying the first observation in a scan sequence. 
     user_dir: Directory where the lvl 1 data is located. 
@@ -435,4 +436,3 @@ def load_HinodeSP_magvec(user_date, user_dir=None, show_files=False, magnetic_pa
     lvl2_c = stokespy.MagVectorCube(lvl2_data, lvl2_wcs, meta=meta)
     print(f'Created magnetic field data cube with dimensions: {lvl2_c.data.shape}')
     return lvl2_c
-    
