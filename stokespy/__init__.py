@@ -8,4 +8,4 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-__all__ = ['StokesCube', 'MagVectorCube', 'load_HinodeSP_stokes', 'load_HinodeSP_magvec', 'load_HMI_stokes', 'load_HIM_magvec']
+__all__ = ['StokesCube', 'MagVectorCube', 'load_HinodeSP_stokes', 'load_HinodeSP_magvec', 'load_HMI_stokes', 'load_HMI_magvec']
