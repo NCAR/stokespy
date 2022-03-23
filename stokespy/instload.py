@@ -46,7 +46,7 @@ def parse_folder(dir_path=None, inst=None, wave=None, ext=None,
     
     return use_fnames
 
-def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False, show_files=False, derotate=False):
+def load_HMI_stokes(user_dir, user_date, user_email, max_conn=1, download=False, show_files=False, derotate=False):
     """
     Locate and fetch the HMI 720s Level 1 Stokes data closest in time to a user specified date.
     Routine can both fetch the data from JSOC or read pre-downloaded data.
@@ -54,14 +54,14 @@ def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False
     keyword is specified which corrects for HMI's orientation relative to the pre-defined solar north direction.
     
     TODO:
-    1. If download == False the code finds the nearest files in time which may not be inside the time search window.
+    1. If download is False the code finds the nearest files in time which may not be inside the time search window.
     Create a keyword that determines the width of the search time window and then excludes any files, even locally from it.
     The downside to this is the reduced ability to load any files.
     
     Parameters
     ----------
     user_date: `astropy.time` object.
-    user_notify: Notification email. This must be registered with JSOC.
+    user_email: Notification email. This must be registered with JSOC.
     user_dir: Directory where data is/will be stored.
     max_conn: The number of connections to be used when downloading from JSOC. The default setting will be the slowest but least likely to generate download errors.
     download: Flag that can be set to avoid quering JSOC for data that the user already knows is present.
@@ -79,7 +79,7 @@ def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False
     print('Time window used for the search: ', a_time)
     
     # Set the notification email. This must be registered with JSOC. 
-    a_notify = attrs.jsoc.Notify(user_notify)
+    a_notify = attrs.jsoc.Notify(user_email)
     
     # Set the default data directory if no user directory is specified.
     # This needs to change.
@@ -105,27 +105,28 @@ def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False
         # Sort the input filenames
         all_fnames_stokes = natsort.natsorted(down_files)
     else:
+        print('No download requested.')
         all_fnames_stokes = parse_folder(dir_path=user_dir, inst='hmi', series='S_720s', ext='fits', show=show_files)
-    
-        if len(all_fnames_stokes) > 1:
-            tstamps = [i.split('.')[2] for i in all_fnames_stokes]
-            tstamps = [sunpy.time.parse_time('_'.join(i.split('_')[0:2])) for i in tstamps]
-            tstamps_diff = [np.abs(i.gps - user_date.gps) for i in tstamps]
-    
-        # Search for the closest timestamp
-        tstamps_diff = np.asarray(tstamps_diff)
-        tstamps_ix, = np.where(tstamps_diff == tstamps_diff.min())
+        
+    if len(all_fnames_stokes) > 1:
+        tstamps = [i.split('.')[2] for i in all_fnames_stokes]
+        tstamps = [sunpy.time.parse_time('_'.join(i.split('_')[0:2])) for i in tstamps]
+        tstamps_diff = [np.abs(i.gps - user_date.gps) for i in tstamps]
 
-        all_fnames_stokes = np.asarray(all_fnames_stokes)[tstamps_ix]
-       
-        # Check for individual timestamps.
-        unique_tstamps = []
-        for i in range(len(all_fnames_stokes)):
-            if all_fnames_stokes[i].split('.')[2] not in unique_tstamps:
-                unique_tstamps.append(all_fnames_stokes[i].split('.')[2])
+    # Search for the closest timestamp
+    tstamps_diff = np.asarray(tstamps_diff)
+    tstamps_ix, = np.where(tstamps_diff == tstamps_diff.min())
+
+    all_fnames_stokes = np.asarray(all_fnames_stokes)[tstamps_ix]
+
+    # Check for individual timestamps.
+    unique_tstamps = []
+    for i in range(len(all_fnames_stokes)):
+        if all_fnames_stokes[i].split('.')[2] not in unique_tstamps:
+            unique_tstamps.append(all_fnames_stokes[i].split('.')[2])
     
-        print(f'No download requested. Found {len(all_fnames_stokes)} Stokes files with unique timestamp(s):')
-        print(unique_tstamps)
+    print(f'Loaded {len(all_fnames_stokes)} Stokes files with unique timestamp(s):')
+    print(unique_tstamps)
     
     ## Create data array
     ## Use sunpy.map.Map to read HMI files since it provides the correct observer frame of reference.
@@ -172,7 +173,7 @@ def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False
     lvl1_wcs = astropy.wcs.WCS(wcs_header)
     
     meta = {'inst':'SDO/HMI',\
-            'tobs':tstamps[0],\
+            'tobs':unique_tstamps[0],\
             'user_dir':user_dir
            }
     
@@ -182,7 +183,7 @@ def load_HMI_stokes(user_date, user_dir, user_notify, max_conn=1, download=False
     return lvl1_c_HMI
     
     
-def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False, show_files=False, derotate=False):
+def load_HMI_magvec(user_dir, user_date, user_email, max_conn=1, download=False, show_files=False, derotate=False):
     """
     Locate and fetch the HMI 720s Level 2 inversion data closest in time to a user specified date.
     Routine can both fetch the data from JSOC or read pre-downloaded data.
@@ -198,7 +199,7 @@ def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False
     Parameters
     ----------
     user_date: `astropy.time` object.
-    user_notify: Notification email. This must be registered with JSOC.
+    user_email: Notification email. This must be registered with JSOC.
     user_dir: Directory where data is/will be stored.
     max_conn: The number of connections to be used when downloading from JSOC. The default setting will be the slowest but least likely to generate download errors.
     download: Flag that can be set to avoid quering JSOC for data that the user already knows is present.
@@ -216,7 +217,7 @@ def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False
     print('Time window used for the search: ', a_time)
     
     # Set the notification email. This must be registered with JSOC. 
-    a_notify = attrs.jsoc.Notify(user_notify)
+    a_notify = attrs.jsoc.Notify(user_email)
     
     # Set the default data directory if no user directory is specified.
     # This needs to change.
@@ -242,28 +243,30 @@ def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False
         # Sort the input names
         all_fnames_magvec = natsort.natsorted(down_files)
     else:
+        print('No download requested.')
         all_fnames_magvec = parse_folder(dir_path=user_dir, inst='hmi', series='ME_720s_fd10', ext='fits', show=show_files)
         
-        if len(all_fnames_magvec) > 1:
-            tstamps = [i.split('.')[2] for i in all_fnames_magvec]
-            tstamps = [sunpy.time.parse_time('_'.join(i.split('_')[0:2])) for i in tstamps]
-            tstamps_diff = [np.abs(i.gps - user_date.gps) for i in tstamps]
-        else:
-            print('No files found close to the date requested')
-            return 
-            
-        # Search for the closest timestamp
-        tstamps_diff = np.asarray(tstamps_diff)
-        tstamps_ix, = np.where(tstamps_diff == tstamps_diff.min())
+    if len(all_fnames_magvec) > 1:
+        tstamps = [i.split('.')[2] for i in all_fnames_magvec]
+        tstamps = [sunpy.time.parse_time('_'.join(i.split('_')[0:2])) for i in tstamps]
+        tstamps_diff = [np.abs(i.gps - user_date.gps) for i in tstamps]
+    else:
+        print('No files found close to the date requested')
+        return 
 
-        all_fnames_magvec = np.asarray(all_fnames_magvec)[tstamps_ix]
-        
-        unique_tstamps = []
-        for i in range(len(all_fnames_magvec)):
-            if all_fnames_magvec[i].split('.')[2] not in unique_tstamps:
-                unique_tstamps.append(all_fnames_magvec[i].split('.')[2])
-        print(f'No download requested. Found {len(all_fnames_magvec)} inversion files with timestamps: ')
-        print(unique_tstamps)
+    # Search for the closest timestamp
+    tstamps_diff = np.asarray(tstamps_diff)
+    tstamps_ix, = np.where(tstamps_diff == tstamps_diff.min())
+
+    all_fnames_magvec = np.asarray(all_fnames_magvec)[tstamps_ix]
+
+    unique_tstamps = []
+    for i in range(len(all_fnames_magvec)):
+        if all_fnames_magvec[i].split('.')[2] not in unique_tstamps:
+            unique_tstamps.append(all_fnames_magvec[i].split('.')[2])
+    
+    print(f'Loaded {len(all_fnames_magvec)} inversion files with timestamps: ')
+    print(unique_tstamps)
     
     # Create MagVectorCube from HMI inversions
     mag_params = ['field', 'inclination', 'azimuth']
@@ -310,7 +313,7 @@ def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False
     lvl2_wcs = astropy.wcs.WCS(wcs_header)
     
     meta = {'inst':'SDO/HMI',\
-            'tobs':tstamps[0],\
+            'tobs':unique_tstamps[0],\
             'user_dir':user_dir}
     
     # Create the HMI Cubes
@@ -318,7 +321,7 @@ def load_HMI_magvec(user_date, user_dir, user_notify, max_conn=1, download=False
     print(f'Created magnetic field data cube with dimensions: {lvl2_c_HMI.data.shape}')
     return lvl2_c_HMI
     
-def load_HinodeSP_stokes(user_date, user_dir, show_files=False):
+def load_HinodeSP_stokes(user_dir, user_date, show_files=False):
     """
     Function that loads the lvl 1 Hinode SP observations associated with the string user_date. The data for Hinode must be downloaded independently from the Hinode website.
     
@@ -332,6 +335,8 @@ def load_HinodeSP_stokes(user_date, user_dir, show_files=False):
     # Assume that all the files in the indicated directory are part of the scan. 
     # TODO: Validate the scan files using the header information.
     lvl1_files = []
+    user_dir = os.path.join(user_dir, 'level1', user_date[0:4], user_date[4:6], user_date[6:8], 'SP3D', user_date)
+    print('Loading data from: ', user_dir)
     for file in sorted(os.listdir(user_dir)):
         if file.endswith(".fits"):
             lvl1_files.append(os.path.join(user_dir, file))
@@ -378,7 +383,7 @@ def load_HinodeSP_stokes(user_date, user_dir, show_files=False):
     
     return lvl1_c_SP
     
-def load_HinodeSP_magvec(user_date, user_dir=None, show_files=False, magnetic_params=['Field_Strength', 'Field_Inclination', 'Field_Azimuth']):
+def load_HinodeSP_magvec(user_dir, user_date, show_files=False, magnetic_params=['Field_Strength', 'Field_Inclination', 'Field_Azimuth']):
     """
     Function that loads the Hinode SP magnetic inversion results associated with the string user_date.
     ----------
@@ -388,11 +393,11 @@ def load_HinodeSP_magvec(user_date, user_dir=None, show_files=False, magnetic_pa
     """
     
     ### Set the default directory substructure.
-    #if user_dir is None:
-    #    user_dir = os.getcwd() + '/Data/Hinode/'
-   
+    user_dir = os.path.join(user_dir, 'level2', user_date[0:4], user_date[4:6], user_date[6:8], 'SP3D', user_date)
+    print('Loading data from: ', user_dir)
+
     ### Read the Level 2 fit data. 
-    lvl2_fname = user_dir + user_date + '.fits'
+    lvl2_fname = os.path.join(user_dir, user_date + '.fits')
     lvl2_SP = astropy.io.fits.open(lvl2_fname)
     
     Ny, Nx = lvl2_SP['Field_Strength'].data.shape
