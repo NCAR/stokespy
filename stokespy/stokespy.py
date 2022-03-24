@@ -425,7 +425,7 @@ class StokesCube(ndcube.ndcube.NDCube):
     
     def V_map(self, wavelength, stop_wavelength=None):
         """Circular polarization as a 2D NDCube (coord1, coord2)"""        
-        return self._stokes_map(2, wavelength, stop_wavelength=stop_wavelength)
+        return self._stokes_map(3, wavelength, stop_wavelength=stop_wavelength)
     
     def P_map(self, wavelength, stop_wavelength=None):
         """Total polarization P = sqrt(Q**2 + U**2 + V**2) as a 2D NDCube (coord1, coord2)"""
