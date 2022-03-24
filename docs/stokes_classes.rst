@@ -78,4 +78,4 @@ object, regardless of its dimensionality or instrument of origin.
 See the `~stokespy.StokesCube` API reference for the full set of
 slicing access methods.  Methods are also provided for common
 polarimetric calculations, such as the total polarization with
-``stokes.P``.
+`~stokespy.StokesCube.P`.
