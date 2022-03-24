@@ -38,7 +38,7 @@ def parse_folder(dir_path=None, inst=None, wave=None, ext=None,
             sfile_ = file_.lower().split("_")
         
         if sfile_[0] == inst.lower() and sfile_[1] == series.lower(): 
-            use_fnames.append(dir_path + file_)
+            use_fnames.append(os.path.join(dir_path, file_))
         
     if show:
         for i, file_ in enumerate(use_fnames):
