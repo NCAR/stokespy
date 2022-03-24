@@ -1,4 +1,4 @@
-Copyright (c) 2021, Gabriel Dima
+Copyright (c) 2021, Gabriel Dima & Ricky Egeland
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,

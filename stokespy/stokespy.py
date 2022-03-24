@@ -217,9 +217,11 @@ class StokesCube(ndcube.ndcube.NDCube):
             self._spectral_axis = self._spectral_slice().array_index_to_world_values(np.arange(self.n_spectral)) * u.Quantity(1, self.wcs.world_axis_units[2])
             
             # Define the observer frame if it exists.
-            tmp_var = np.zeros(self.wcs.pixel_n_dim, dtype='int')
-            self.meta['frame'] = self.wcs.pixel_to_world(*tmp_var)[0].frame
-            self._frame = self.meta['frame']
+            tmp_pixel = np.zeros(self.wcs.pixel_n_dim, dtype='int')
+            tmp_world = self.wcs.pixel_to_world(*tmp_pixel)
+            if hasattr(tmp_world[0], 'frame'):
+                self.meta['frame'] = tmp_world[0].frame
+                self._frame = self.meta['frame']
             
     @property
     def stokes_axis(self):
@@ -423,7 +425,7 @@ class StokesCube(ndcube.ndcube.NDCube):
     
     def V_map(self, wavelength, stop_wavelength=None):
         """Circular polarization as a 2D NDCube (coord1, coord2)"""        
-        return self._stokes_map(2, wavelength, stop_wavelength=stop_wavelength)
+        return self._stokes_map(3, wavelength, stop_wavelength=stop_wavelength)
     
     def P_map(self, wavelength, stop_wavelength=None):
         """Total polarization P = sqrt(Q**2 + U**2 + V**2) as a 2D NDCube (coord1, coord2)"""

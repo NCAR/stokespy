@@ -386,6 +386,8 @@ def load_HinodeSP_stokes(user_dir, user_date, show_files=False):
 def load_HinodeSP_magvec(user_dir, user_date, show_files=False, magnetic_params=['Field_Strength', 'Field_Inclination', 'Field_Azimuth']):
     """
     Function that loads the Hinode SP magnetic inversion results associated with the string user_date.
+
+    Parameters
     ----------
     user_date: string with format "yearmmdd_hhmmss" specifying the first observation in a scan sequence. 
     user_dir: Directory where the lvl1 and lvl2 data is located. We assume the data is
