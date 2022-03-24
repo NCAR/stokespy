@@ -6,8 +6,6 @@ import astropy.coordinates
 from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.wcs.wcsapi import SlicedLowLevelWCS, HighLevelWCSWrapper
 
-#import copy
-
 import matplotlib.pyplot as plt
 
 from . import plotting
@@ -15,7 +13,7 @@ from matplotlib.widgets import Slider, Button
 
 def make_def_wcs(naxis=3, ctype=None, cunit=None):
     """
-    Function that generates a default wcs object.
+    Generate a default WCS object
     
     Parameters
     -----------
@@ -463,7 +461,7 @@ class StokesCube(ndcube.ndcube.NDCube):
         """Return a 1D NDCube (wavelength) for a given Stokes parameter and coordinate selection"""
         
         # Tranform input coordinates into a SkyCoord object.
-        coords, coords_pix = self._get_spatial_index(coords)
+        coords, coords_pix = self.get_spatial_ind(coords)
         
         newcube = self._stokes_slice(stokes_ix)
         
@@ -475,8 +473,8 @@ class StokesCube(ndcube.ndcube.NDCube):
         
         return StokesProfile(newcube.data, newcube.wcs, meta=newcube.meta)
     
-    def _get_spatial_index(self,coords):
-        """Test if a wavelength is inside the wavelength axis for the object and return the array index corresponding to that wavelength """
+    def get_spatial_ind(self,coords):
+        """Test if a set of coordinates fit inside the dimensions of the 2D images."""
         
         # TODO: allow to specify coords in physical units
         if (isinstance(coords, list) or isinstance(coords, tuple)) and (len(coords) == 2):
@@ -549,7 +547,7 @@ class StokesCube(ndcube.ndcube.NDCube):
         
         if (coords is not None): 
             # Tranform input coordinates into a SkyCoord object.
-            coords, coords_pix = self._get_spatial_index(coords)
+            coords, coords_pix = self.get_spatial_ind(coords)
             
             plt_meta = self.meta.copy()
             plt_meta['x0_pix'] = coords_pix[1]
@@ -563,10 +561,11 @@ class StokesCube(ndcube.ndcube.NDCube):
                                             self.data, plot_u, meta=plt_meta, 
                                             proj=self[0,0,:,:].wcs, **kwargs)
             else:
-                plt_meta['stokes'] = self._stokes_axis[context]
+                context_ind = self._stokes_axis.index(context)
+                plt_meta['stokes'] = context
                 return plotting._plot_context_all_profiles(self._spectral_axis,
                                                         self.data[:,:,coords_pix[0],coords_pix[1]], 
-                                                        self.data[context,:,:,:], plot_u,
+                                                        self.data[context_ind,:,:,:], plot_u,
                                                         proj=self[0,0,:,:].wcs, meta=plt_meta,
                                                         **kwargs)
         elif coords is None:

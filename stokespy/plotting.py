@@ -391,7 +391,7 @@ def _plot_image(data, ax=None, proj=None, meta=None, plot_title=None, **kwargs):
 
     ax.imshow(data, **kwargs)
     
-    ax.set_title(plot_title, fontsize=8)
+    ax.set_title(plot_title, fontsize=10)
     ax.set_xlabel('Helioprojective Longitude')
     ax.set_ylabel('Helioprojective Latitude')
     
