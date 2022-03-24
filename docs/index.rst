@@ -9,16 +9,16 @@ inversion products, as well as provide common operations general to
 all such datasets.
 
 For polarized spectra, the highest dimensionality data object is the
-`StokesCube`, which represents a map (two spatial dimensions) of
+`~stokespy.StokesCube`, which represents a map (two spatial dimensions) of
 profiles (wavelength) of the 4 Stokes parameters (IQUV), making a
-seven-dimensional object.  StokesPy is based on the ndcube package
+seven-dimensional object.  StokesPy is based on the `ndcube` package
 which provides support for coordinate-aware slicing of this
 multidimensional data.  StokesPy implements dimensionality-aware
 subclasses to represent and visualize maps of a given Stokes parameter
 and wavelength, slits, and profiles at a given pixel coordinate.
 
 For inversion products, StokesPy currently implements an object to represent
-vector magnetograms, MagVectorCube.  Future versions of StokesPy will provide
+vector magnetograms, `~stokespy.MagVectorCube`.  Future versions of StokesPy will provide
 representations of slab atmospheres and stratified atmospheres, and
 provide tools to aid in the comparison of synthesized polarized
 spectra from model atmospheres to observational data.
@@ -38,16 +38,15 @@ spectra from model atmospheres to observational data.
 Getting Help
 ============
 
-If you are unsure of the general features of the ndcube package, your
+If you are unsure of the general features of the stokespy package, your
 first stop should be this document which we strive to make as
 comprehensive, yet understandable, as possible.
 
 If you would like to know more about how to use a specific function,
 class, etc., documentation for each object is in the :ref:`api` of
-this guide.  If you cannot find the answer to your issue there, would
-like to provide feedback, or would like help contributing code to
-StokesPy, you can get help directly by mailing XXX.
-
+this guide.  Interactive help should be solicited at the resources described
+on this `SunPy help page <https://sunpy.org/help.html>`_.  Be sure to
+clearly indicate you are working with StokesPy.
 
 Reporting Bugs
 --------------

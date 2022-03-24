@@ -12,3 +12,6 @@ representing the 3D atmosphere (including depth) will be developed.
   >>> import stokespy
   >>> field = stokespy.instload.load_HinodeSP_magvec(...)
   >>> field.B.plot()
+
+.. image:: images/MagVectorMap_plot.png
+  :alt: Plot of a MagVectorMap object
